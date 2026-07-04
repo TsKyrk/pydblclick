@@ -129,3 +129,82 @@ def test_subprocess_exception_forces_pause_despite_customization(tmp_path):
 
     assert "RuntimeError" in out
     assert "Press <Enter>" in out
+
+
+# ---------------------------------------------------------------------------
+# Parent supervisor — fallback pause when the child cannot pause itself
+# ---------------------------------------------------------------------------
+
+def test_subprocess_exit_closing_stdin_still_pauses(tmp_path):
+    """exit() closes stdin in the child; the parent supervisor pauses instead."""
+    script = tmp_path / "stdin_killer.py"
+    script.write_text('print("about to exit")\nexit(0)\n', encoding="utf-8")
+
+    out, _, code = _run(script)
+
+    assert "about to exit" in out
+    assert "Press <Enter>" in out  # fallback pause displayed by the parent
+    assert code == 0
+
+
+def test_subprocess_hard_crash_still_pauses(tmp_path):
+    """os._exit() kills the child instantly; the parent supervisor pauses."""
+    script = tmp_path / "hard_crash.py"
+    # flush=True because os._exit() skips stdio buffer flushing (plain Python behavior)
+    script.write_text('print("dying hard", flush=True)\nimport os\nos._exit(7)\n', encoding="utf-8")
+
+    out, _, code = _run(script)
+
+    assert "dying hard" in out
+    assert "Press <Enter>" in out  # fallback pause displayed by the parent
+    assert code == 7
+
+
+def test_subprocess_no_fallback_pause_in_cli_mode(tmp_path):
+    """A hard crash in CLI mode must not trigger the fallback pause."""
+    script = tmp_path / "hard_crash.py"
+    script.write_text("import os\nos._exit(7)\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "pyexewrap", str(script)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PROMPT": ">"},
+    )
+
+    assert "Press <Enter>" not in result.stdout
+    assert result.returncode == 7
+
+
+# ---------------------------------------------------------------------------
+# Exit code and argv fidelity (CLI/batch callers)
+# ---------------------------------------------------------------------------
+
+def test_subprocess_exit_code_propagated_in_cli_mode(tmp_path):
+    """sys.exit(3) in the script surfaces as pyexewrap's own exit code."""
+    script = tmp_path / "exit3.py"
+    script.write_text("import sys\nsys.exit(3)\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "pyexewrap", str(script)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PROMPT": ">"},
+    )
+
+    assert result.returncode == 3
+
+
+def test_subprocess_script_args_forwarded(tmp_path):
+    """Arguments after the script path are forwarded as the script's sys.argv."""
+    script = tmp_path / "args.py"
+    script.write_text("import sys\nprint('|'.join(sys.argv[1:]))\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "pyexewrap", str(script), "alpha", "beta gamma"],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PROMPT": ">"},
+    )
+
+    assert result.stdout.strip() == "alpha|beta gamma"

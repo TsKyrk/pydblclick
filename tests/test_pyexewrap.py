@@ -1,18 +1,19 @@
 """Automated regression tests for pyexewrap.
 
 These tests verify the core behavior of the tool and protect against regressions.
+They call run_script() from pyexewrap._child directly (in-process).
 For interactive ergonomic tests demonstrating the tool's UX, see unit_tests/.
 """
 import os
 import pytest
-from pyexewrap.__main__ import run_script
+from pyexewrap._child import run_script
 
 
 @pytest.fixture(autouse=True)
 def cli_mode(monkeypatch):
     """Simulate CLI execution (not double-click) for all tests.
 
-    This prevents run_script() from blocking on input() at the pause prompt.
+    This prevents the caller from blocking on input() at the pause prompt.
     Tests that need to simulate a double-click override this fixture.
     """
     monkeypatch.setenv("PROMPT", ">")
@@ -28,29 +29,32 @@ def test_simple_script_runs(tmp_path, capsys):
     script = tmp_path / "hello.py"
     script.write_text('print("hello world")', encoding="utf-8")
 
-    pause = run_script(str(script))
+    pause, code = run_script(str(script))
 
     assert capsys.readouterr().out.strip() == "hello world"
     assert pause is False  # no pause in CLI mode
+    assert code == 0
 
 
 def test_no_pause_in_cli_mode(tmp_path):
-    """run_script() returns False (no pause) when executed from a console."""
+    """run_script() returns pause=False when executed from a console."""
     script = tmp_path / "noop.py"
     script.write_text("x = 1", encoding="utf-8")
 
-    assert run_script(str(script)) is False
+    pause, _ = run_script(str(script))
+    assert pause is False
 
 
 def test_pause_in_doubleclick_mode(tmp_path, monkeypatch):
-    """run_script() returns True (pause needed) when double-clicked."""
+    """run_script() returns pause=True when double-clicked."""
     script = tmp_path / "noop.py"
     script.write_text("x = 1", encoding="utf-8")
 
     monkeypatch.delenv("PROMPT", raising=False)
     monkeypatch.setenv("pyexewrap_simulate_doubleclick", "1")
 
-    assert run_script(str(script)) is True
+    pause, _ = run_script(str(script))
+    assert pause is True
 
 
 # ---------------------------------------------------------------------------
@@ -60,8 +64,9 @@ def test_pause_in_doubleclick_mode(tmp_path, monkeypatch):
 def test_import_accessible_inside_function(tmp_path, capsys):
     """Module-level imports are visible inside functions (E001 regression).
 
-    Before the fix, exec() used different global/local scopes so imports
+    Historically, exec() used different global/local scopes so imports
     made at module level were invisible from within a called function.
+    runpy.run_path() gives plain-Python module semantics.
     """
     script = tmp_path / "e001.py"
     script.write_text(
@@ -86,18 +91,19 @@ def test_exception_shows_traceback(tmp_path, capsys):
     script = tmp_path / "e002.py"
     script.write_text("raise ValueError('oops')", encoding="utf-8")
 
-    run_script(str(script))
+    _, code = run_script(str(script))
 
     out = capsys.readouterr().out
     assert "ValueError" in out
     assert "oops" in out
+    assert code != 0
 
 
 def test_traceback_excludes_pyexewrap_frame(tmp_path, capsys):
-    """The traceback does not expose pyexewrap's internal exec() frame (E002 regression).
+    """The traceback does not expose pyexewrap's internal frames (E002 regression).
 
-    Before the fix, the traceback started with pyexewrap/__main__.py, which was
-    confusing because it didn't belong to the user's script.
+    The traceback must start at the user's script, not at pyexewrap's
+    run_script()/runpy internals.
     """
     script = tmp_path / "e002_clean.py"
     script.write_text("raise RuntimeError('boom')", encoding="utf-8")
@@ -107,7 +113,21 @@ def test_traceback_excludes_pyexewrap_frame(tmp_path, capsys):
     out = capsys.readouterr().out
     # The traceback must point to the user's script, not to pyexewrap internals
     assert str(script) in out
-    assert "exec(compiled_code" not in out
+    assert "runpy" not in out
+    assert "_child.py" not in out
+
+
+def test_syntax_error_shows_location(tmp_path, capsys):
+    """A SyntaxError (no frame in the script) still shows file and line."""
+    script = tmp_path / "e002_syntax.py"
+    script.write_text("def broken(:\n", encoding="utf-8")
+
+    _, code = run_script(str(script))
+
+    out = capsys.readouterr().out
+    assert "SyntaxError" in out
+    assert str(script) in out
+    assert code != 0
 
 
 # ---------------------------------------------------------------------------
@@ -115,15 +135,12 @@ def test_traceback_excludes_pyexewrap_frame(tmp_path, capsys):
 # ---------------------------------------------------------------------------
 
 def test_exit_does_not_crash_pyexewrap(tmp_path):
-    """exit() in a script is handled gracefully (E003 regression).
-
-    Before the fix, intercepting SystemExit closed stdin, making the subsequent
-    input() in the pause prompt raise ValueError.
-    """
+    """exit() in a script is handled gracefully (E003 regression)."""
     script = tmp_path / "e003_exit.py"
     script.write_text("exit(0)", encoding="utf-8")
 
-    run_script(str(script))  # must not raise
+    _, code = run_script(str(script))  # must not raise
+    assert code == 0
 
 
 def test_quit_does_not_crash_pyexewrap(tmp_path):
@@ -131,7 +148,8 @@ def test_quit_does_not_crash_pyexewrap(tmp_path):
     script = tmp_path / "e003_quit.py"
     script.write_text("quit(0)", encoding="utf-8")
 
-    run_script(str(script))  # must not raise
+    _, code = run_script(str(script))  # must not raise
+    assert code == 0
 
 
 def test_systemexit_does_not_crash_pyexewrap(tmp_path):
@@ -139,7 +157,17 @@ def test_systemexit_does_not_crash_pyexewrap(tmp_path):
     script = tmp_path / "e003_systemexit.py"
     script.write_text("raise SystemExit(0)", encoding="utf-8")
 
-    run_script(str(script))  # must not raise
+    _, code = run_script(str(script))  # must not raise
+    assert code == 0
+
+
+def test_systemexit_code_is_propagated(tmp_path):
+    """sys.exit(3) in the script is propagated as exit code 3 (CLI/batch callers)."""
+    script = tmp_path / "e003_code.py"
+    script.write_text("import sys\nsys.exit(3)", encoding="utf-8")
+
+    _, code = run_script(str(script))
+    assert code == 3
 
 
 # ---------------------------------------------------------------------------
@@ -147,17 +175,34 @@ def test_systemexit_does_not_crash_pyexewrap(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_dunder_file_points_to_script(tmp_path, capsys):
-    """__file__ inside the executed script is the script's own path (E004 regression).
-
-    Before the fix, __file__ resolved to pyexewrap/__main__.py instead of the
-    user's script, breaking any script that relied on __file__ for path resolution.
-    """
+    """__file__ inside the executed script is the script's own path (E004 regression)."""
     script = tmp_path / "e004.py"
     script.write_text("print(__file__)", encoding="utf-8")
 
     run_script(str(script))
 
     assert capsys.readouterr().out.strip() == str(script)
+
+
+def test_dunder_name_is_main(tmp_path, capsys):
+    """The script runs with __name__ == '__main__', like plain python."""
+    script = tmp_path / "name.py"
+    script.write_text("print(__name__)", encoding="utf-8")
+
+    run_script(str(script))
+
+    assert capsys.readouterr().out.strip() == "__main__"
+
+
+def test_sibling_import_works(tmp_path, capsys):
+    """The script's directory is on sys.path, like `python script.py`."""
+    (tmp_path / "sibling.py").write_text("VALUE = 'from sibling'", encoding="utf-8")
+    script = tmp_path / "importer.py"
+    script.write_text("import sibling\nprint(sibling.VALUE)", encoding="utf-8")
+
+    run_script(str(script))
+
+    assert capsys.readouterr().out.strip() == "from sibling"
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +220,8 @@ def test_must_pause_false_suppresses_pause(tmp_path, monkeypatch):
     monkeypatch.delenv("PROMPT", raising=False)
     monkeypatch.setenv("pyexewrap_simulate_doubleclick", "1")
 
-    assert run_script(str(script)) is False
+    pause, _ = run_script(str(script))
+    assert pause is False
 
 
 def test_exception_forces_pause_despite_customization(tmp_path, monkeypatch, capsys):
@@ -190,4 +236,5 @@ def test_exception_forces_pause_despite_customization(tmp_path, monkeypatch, cap
     monkeypatch.delenv("PROMPT", raising=False)
     monkeypatch.setenv("pyexewrap_simulate_doubleclick", "1")
 
-    assert run_script(str(script)) is True
+    pause, _ = run_script(str(script))
+    assert pause is True

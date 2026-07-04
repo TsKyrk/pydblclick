@@ -10,8 +10,8 @@ file associations) rather than code bugs. A failure here means pyexewrap
 will not be invoked on double-click, even if the unit tests pass.
 
 MSIX Python Manager compatibility:
-  Both the shebang approach and ByDefaultActivation via activate.py work with MSIX.
-  See MSIX_COMPATIBILITY.md for the full compatibility matrix.
+  Only ByDefaultActivation via activate.py (ProgID + UserChoice) works with MSIX;
+  the shebang approach does not. See MSIX_COMPATIBILITY.md for the full matrix.
 """
 import pytest
 
