@@ -208,3 +208,78 @@ def test_subprocess_script_args_forwarded(tmp_path):
     )
 
     assert result.stdout.strip() == "alpha|beta gamma"
+
+
+# ---------------------------------------------------------------------------
+# Opt-out directive — pyexewrap steps aside
+# ---------------------------------------------------------------------------
+
+def test_subprocess_opt_out_no_pause(tmp_path):
+    """A '# pyexewrap: off' script runs unwrapped: no pause even on double-click."""
+    script = tmp_path / "opted_out.py"
+    script.write_text('# pyexewrap: off\nprint("plain run")\n', encoding="utf-8")
+
+    out, _, code = _run(script)
+
+    assert "plain run" in out
+    assert "Press <Enter>" not in out
+    assert code == 0
+
+
+def test_subprocess_opt_out_propagates_exit_code(tmp_path):
+    """Opt-out keeps plain-Python behavior including the exit code."""
+    script = tmp_path / "opted_out_exit.py"
+    script.write_text("# pyexewrap: off\nimport sys\nsys.exit(5)\n", encoding="utf-8")
+
+    _, _, code = _run(script)
+
+    assert code == 5
+
+
+# ---------------------------------------------------------------------------
+# PEP 723 — dependency-aware execution through uv
+# ---------------------------------------------------------------------------
+
+PEP723_SCRIPT = (
+    "# /// script\n"
+    "# dependencies = []\n"
+    "# ///\n"
+    "import sys\n"
+    "print('ran with', sys.version_info[0])\n"
+)
+
+
+def _uv_available():
+    import shutil
+    return os.environ.get("PYEXEWRAP_UV") or shutil.which("uv")
+
+
+def test_subprocess_pep723_without_uv_falls_back(tmp_path):
+    """Without uv on PATH, a PEP 723 script still runs (plain) with a clear message."""
+    if _uv_available():
+        pytest.skip("uv is available on this machine; fallback path not reachable")
+
+    script = tmp_path / "needs_deps.py"
+    script.write_text(PEP723_SCRIPT, encoding="utf-8")
+
+    out, _, code = _run(script)
+
+    assert "uv" in out and "not found" in out  # clear fallback message
+    assert "ran with" in out  # script still executed
+    assert "Press <Enter>" in out  # normal wrapped UX preserved
+    assert code == 0
+
+
+def test_subprocess_pep723_runs_through_uv(tmp_path):
+    """With uv available, a PEP 723 script runs in an ephemeral env, UX preserved."""
+    if not _uv_available():
+        pytest.skip("uv not available (install uv or set PYEXEWRAP_UV)")
+
+    script = tmp_path / "with_deps.py"
+    script.write_text(PEP723_SCRIPT, encoding="utf-8")
+
+    out, _, code = _run(script)
+
+    assert "ran with" in out
+    assert "Press <Enter>" in out  # pyexewrap UX preserved inside the uv env
+    assert code == 0

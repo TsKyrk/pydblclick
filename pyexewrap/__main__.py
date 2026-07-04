@@ -15,14 +15,23 @@ away, even when the child cannot pause by itself:
 Child -> parent protocol: the child writes "handled" to the file pointed to
 by the PYEXEWRAP_STATUS_FILE env var once it has fulfilled its pause-or-no-pause
 duty. If the marker is missing after the child exits, the parent pauses.
+
+Before launching, the parent inspects the script's source (pyexewrap/_script_meta.py):
+- `# pyexewrap: off` -> run with plain Python, no wrapping at all;
+- PEP 723 `# /// script` block -> run the child through `uv run` so the
+  declared dependencies are resolved in an ephemeral environment.
 """
 import os
+import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 
+from pyexewrap import _script_meta
 from pyexewrap._child import STATUS_HANDLED, User32
+
+UV_INSTALL_URL = "https://docs.astral.sh/uv/getting-started/installation/"
 
 
 def _script_is_doubleclicked():
@@ -49,6 +58,50 @@ def _fallback_pause(returncode):
         pass  # stdin unusable in the parent too: nothing more we can do
 
 
+def _plain_python_for(script):
+    """The interpreter for unwrapped execution (pythonw for .pyw when available)."""
+    if os.path.splitext(script)[1].lower() == ".pyw":
+        pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+        if os.path.exists(pythonw):
+            return pythonw
+    return sys.executable
+
+
+def _find_uv():
+    """Locate the uv executable (PYEXEWRAP_UV overrides PATH, for tests)."""
+    return os.environ.get("PYEXEWRAP_UV") or shutil.which("uv")
+
+
+def _build_child_command(script, script_args, env):
+    """Build the child command line, delegating to `uv run` for PEP 723 scripts."""
+    default_cmd = [sys.executable, "-m", "pyexewrap._child", script] + script_args
+
+    meta = _script_meta.parse_pep723(_script_meta.read_script_text(script))
+    if meta is None:
+        return default_cmd
+
+    uv = _find_uv()
+    if not uv:
+        print("[pyexewrap] This script declares PEP 723 dependencies, but 'uv' was not found on PATH.")
+        print("            Install uv to run it with its dependencies resolved automatically:")
+        print("            " + UV_INSTALL_URL)
+        print("            Running with plain Python instead...\n")
+        return default_cmd
+
+    cmd = [uv, "run", "--no-project"]
+    if meta["requires-python"]:
+        cmd += ["--python", meta["requires-python"]]
+    for dep in meta["dependencies"]:
+        cmd += ["--with", dep]
+    cmd += ["python", "-m", "pyexewrap._child", script] + script_args
+
+    # pyexewrap itself must be importable inside uv's ephemeral environment
+    package_parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = package_parent + (os.pathsep + existing if existing else "")
+    return cmd
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: pyexewrap <script.py> [args...]")
@@ -63,6 +116,13 @@ def main():
         from pyexewrap import _cli
         return _cli.main(sys.argv[1:])
 
+    script, script_args = sys.argv[1], sys.argv[2:]
+
+    # Per-script opt-out: run with plain Python, no wrapping, no pause
+    if _script_meta.has_opt_out(_script_meta.read_script_text(script)):
+        result = subprocess.run([_plain_python_for(script), script] + script_args)
+        return result.returncode
+
     # The status file is how the child tells us "I already paused (or decided
     # a pause was not needed)". It survives any way the child may die.
     fd, status_file = tempfile.mkstemp(prefix="pyexewrap_status_")
@@ -70,7 +130,7 @@ def main():
     env = dict(os.environ)
     env["PYEXEWRAP_STATUS_FILE"] = status_file
 
-    cmd = [sys.executable, "-m", "pyexewrap._child"] + sys.argv[1:]
+    cmd = _build_child_command(script, script_args, env)
 
     # Ctrl+C is sent to every process attached to the console. The child is
     # the one that must handle it (KeyboardInterrupt in the script, then its
