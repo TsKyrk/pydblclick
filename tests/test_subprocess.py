@@ -160,6 +160,25 @@ def test_subprocess_hard_crash_still_pauses(tmp_path):
     assert code == 7
 
 
+def test_subprocess_console_closed_by_user_no_fallback_pause(tmp_path):
+    """Killing the child by closing its console window must NOT trigger the
+    fallback pause: closing the window is a deliberate user action.
+
+    The console-close kill is simulated by exiting with STATUS_CONTROL_C_EXIT
+    (0xC000013A), the exact exit code Windows sets in that situation.
+    """
+    script = tmp_path / "window_closed.py"
+    script.write_text(
+        "import ctypes\nctypes.windll.kernel32.ExitProcess(0xC000013A)\n",
+        encoding="utf-8",
+    )
+
+    out, _, code = _run(script)
+
+    assert "Press <Enter>" not in out  # no fallback pause
+    assert code == 0xC000013A
+
+
 def test_subprocess_no_fallback_pause_in_cli_mode(tmp_path):
     """A hard crash in CLI mode must not trigger the fallback pause."""
     script = tmp_path / "hard_crash.py"

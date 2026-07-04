@@ -33,6 +33,11 @@ from pyexewrap._child import STATUS_HANDLED, User32, ensure_console, have_consol
 
 UV_INSTALL_URL = "https://docs.astral.sh/uv/getting-started/installation/"
 
+# Exit code of a process killed because its console window was closed (or by a
+# hard Ctrl+C/Ctrl+Break). Closing the window is a deliberate user action:
+# the fallback pause must not fire for it.
+STATUS_CONTROL_C_EXIT = 0xC000013A  # 3221225786
+
 
 def _console_python():
     """The console interpreter (python.exe) even when running under pythonw.exe.
@@ -190,7 +195,8 @@ def main():
             except OSError:
                 pass
 
-    if not child_handled and _script_is_doubleclicked():
+    user_closed_console = result.returncode == STATUS_CONTROL_C_EXIT
+    if not child_handled and not user_closed_console and _script_is_doubleclicked():
         _fallback_pause(result.returncode)
 
     return result.returncode
