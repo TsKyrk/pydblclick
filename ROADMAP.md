@@ -22,9 +22,10 @@ The pivot therefore recomposes the project around three ideas:
 1. **ProgID/UserChoice registration is the primary mechanism** (ByDefaultActivation +
    winpyfiles are promoted from "add-on" to core).
 2. **Subprocess execution replaces in-process `exec()`** — removes the monkey-patching
-   of `exit()`/`quit()`, the manual namespace reconstruction, and the traceback surgery.
-   The post-mortem interactive console is provided by the child interpreter itself
-   (`python -i` / `PYTHONINSPECT`).
+   of `exit()`/`quit()` and the manual namespace reconstruction. The child engine runs
+   the script via `runpy` (plain-Python semantics) and keeps the interactive console
+   on the script's real globals; the parent supervisor guarantees the pause even on
+   hard crash or closed stdin.
 3. **PEP 723 + uv integration** finally covers the dependency half of the original goal:
    one-file scripts that colleagues can double-click without managing venvs — the handler
    detects the `# /// script` metadata block and delegates execution to `uv run`.
@@ -42,36 +43,37 @@ Python).
 - [x] Write this roadmap
 
 ### Phase 1 — Core: subprocess execution model
-- [ ] Refactor `run_script()` to launch the target script as a child process
-      (`python script.py`), with the pause prompt/menu handled by the parent
-- [ ] Post-mortem REPL (`<i>` menu option) via `-i` / `PYTHONINSPECT` in the child
-      interpreter (exact interpreter semantics, real locals)
-- [ ] Remove the `exit()`/`quit()` monkey-patching and the `globalsParameter`
+- [x] Refactor to a two-process model: child engine (`pyexewrap._child`, runs the
+      script via `runpy` and owns the pause menu) + parent supervisor (fallback
+      pause when the child cannot pause: closed stdin, hard crash)
+- [x] Post-mortem REPL (`<i>` menu option) with the script's real globals
+      (captured from the traceback frame on exception)
+- [x] Remove the `exit()`/`quit()` monkey-patching and the `globalsParameter`
       namespace reconstruction (both become unnecessary with a child process)
-- [ ] `.pyw` handling in subprocess mode: hidden console, re-shown when the child
+- [x] `.pyw` handling in subprocess mode: hidden console, re-shown when the child
       exit code is non-zero
-- [ ] Detect failure via child exit code; keep `<c>`/`<i>`/`<r>` menu behaviour
-- [ ] Adapt `tests/` (pytest) and `unit_tests/` (manual UX scenarios) to the new model
+- [x] Detect failure via child exit code; keep `<c>`/`<i>`/`<r>` menu behaviour
+- [x] Adapt `tests/` (pytest) and `unit_tests/` (manual UX scenarios) to the new model
 
 ### Phase 2 — Modern installation
-- [ ] Make the package pip-installable: `pyproject.toml` with a `pyexewrap` console
+- [x] Make the package pip-installable: `pyproject.toml` with a `pyexewrap` console
       entry point (the PYTHONPATH/`add_to_pythonpath.py` approach becomes legacy)
-- [ ] `pyexewrap register` / `pyexewrap unregister` CLI commands — merge
+- [x] `pyexewrap register` / `pyexewrap unregister` CLI commands — merge
       `tools/ByDefaultActivation/activate.py`/`disable.py` and winpyfiles into the
       main CLI (ProgID + UserChoice flow, automatic backup)
 - [ ] Build a small standalone handler exe (modernize `tools/pyexewrap_exe`) so the
       registered command does not depend on which Python is on PATH
 
 ### Phase 3 — Dependency management (PEP 723 / uv)
-- [ ] Detect the PEP 723 `# /// script` block in the target script; if present,
+- [x] Detect the PEP 723 `# /// script` block in the target script; if present,
       execute via `uv run` instead of plain `python`
-- [ ] Graceful fallback when uv is not installed (clear message + install link;
+- [x] Graceful fallback when uv is not installed (clear message + install link;
       optionally offer to install it)
-- [ ] Per-script opt-out directive read by the wrapper itself (e.g. `# pyexewrap: off`
+- [x] Per-script opt-out directive read by the wrapper itself (e.g. `# pyexewrap: off`
       comment) — replaces the per-script granularity the shebang used to provide
 
 ### Phase 4 — Distribution
-- [ ] Rewrite the README around the new flow: install → `pyexewrap register` →
+- [x] Rewrite the README around the new flow: install → `pyexewrap register` →
       double-click any script (PEP 723 aware)
 - [ ] Publish to PyPI
 
