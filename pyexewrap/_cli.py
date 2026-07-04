@@ -22,6 +22,7 @@ from winpyfiles._elevation import is_admin
 from winpyfiles._backup import backup
 
 PROG_ID = "pyexewrap.PyFile"
+PROG_ID_PYW = "pyexewrap.PywFile"
 APP_KEY = "pyexewrap"
 APP_DISPLAY_NAME = "pyexewrap"
 APP_DESCRIPTION = "Python script launcher with pause prompt, error display and interactive menu"
@@ -30,9 +31,25 @@ EXTENSIONS = (".py", ".pyw")
 COMMANDS = ("register", "unregister", "diagnose")
 
 
-def _handler_command():
-    """The shell open command to register for .py/.pyw files."""
-    return '"' + sys.executable + '" -m pyexewrap "%1" %*'
+def _pythonw():
+    """The windowless interpreter next to sys.executable (fallback: sys.executable)."""
+    candidate = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+    return candidate if os.path.exists(candidate) else sys.executable
+
+
+def _handler_command(extension=".py"):
+    """The shell open command to register for the given extension.
+
+    .py  -> python.exe  (a console exists from the start)
+    .pyw -> pythonw.exe (no console at all; one is created on demand only if
+            the script raises an exception)
+    """
+    exe = _pythonw() if extension == ".pyw" else sys.executable
+    return '"' + exe + '" -m pyexewrap "%1" %*'
+
+
+def _prog_id_for(extension):
+    return PROG_ID_PYW if extension == ".pyw" else PROG_ID
 
 
 def _elevate_and_rerun(subcommand):
@@ -74,18 +91,23 @@ def _delete_value(hive, key_path, value_name):
         pass
 
 
-def _register_prog_id(command):
-    """Create the pyexewrap.PyFile ProgID and related registry entries."""
+def _register_prog_ids():
+    """Create the pyexewrap ProgIDs (one per extension) and related registry entries."""
     icon = '"' + sys.executable + '",0'
 
-    write_value(HKCU, "Software\\Classes\\" + PROG_ID, APP_DISPLAY_NAME)
-    write_value(HKCU, "Software\\Classes\\" + PROG_ID + "\\DefaultIcon", icon)
-    write_value(HKCU, "Software\\Classes\\" + PROG_ID + "\\shell\\open\\command", command)
-    with winreg.CreateKeyEx(HKCU, "Software\\Classes\\" + PROG_ID + "\\shell\\open",
-                            access=winreg.KEY_WRITE) as k:
-        winreg.SetValueEx(k, "FriendlyAppName", 0, winreg.REG_SZ, APP_DISPLAY_NAME)
+    for ext in EXTENSIONS:
+        prog_id = _prog_id_for(ext)
+        command = _handler_command(ext)
+        write_value(HKCU, "Software\\Classes\\" + prog_id, APP_DISPLAY_NAME)
+        write_value(HKCU, "Software\\Classes\\" + prog_id + "\\DefaultIcon", icon)
+        write_value(HKCU, "Software\\Classes\\" + prog_id + "\\shell\\open\\command", command)
+        with winreg.CreateKeyEx(HKCU, "Software\\Classes\\" + prog_id + "\\shell\\open",
+                                access=winreg.KEY_WRITE) as k:
+            winreg.SetValueEx(k, "FriendlyAppName", 0, winreg.REG_SZ, APP_DISPLAY_NAME)
 
-    write_value(HKCU, "Software\\Classes\\Applications\\" + APP_KEY + "\\shell\\open\\command", command)
+    # "Open with" dialog application entry (console command covers both types)
+    command_py = _handler_command(".py")
+    write_value(HKCU, "Software\\Classes\\Applications\\" + APP_KEY + "\\shell\\open\\command", command_py)
     with winreg.CreateKeyEx(HKCU, "Software\\Classes\\Applications\\" + APP_KEY + "\\shell\\open",
                             access=winreg.KEY_WRITE) as k:
         winreg.SetValueEx(k, "FriendlyAppName", 0, winreg.REG_SZ, APP_DISPLAY_NAME)
@@ -100,7 +122,7 @@ def _register_prog_id(command):
     with winreg.CreateKeyEx(HKCU, caps_path + "\\FileAssociations",
                             access=winreg.KEY_WRITE) as k:
         for ext in EXTENSIONS:
-            winreg.SetValueEx(k, ext, 0, winreg.REG_SZ, PROG_ID)
+            winreg.SetValueEx(k, ext, 0, winreg.REG_SZ, _prog_id_for(ext))
     with winreg.CreateKeyEx(HKCU, "Software\\RegisteredApplications",
                             access=winreg.KEY_WRITE) as k:
         winreg.SetValueEx(k, APP_KEY, 0, winreg.REG_SZ, caps_path)
@@ -108,33 +130,34 @@ def _register_prog_id(command):
     for ext in EXTENSIONS:
         with winreg.CreateKeyEx(HKCU, "Software\\Classes\\" + ext + "\\OpenWithProgids",
                                 access=winreg.KEY_WRITE) as k:
-            winreg.SetValueEx(k, PROG_ID, 0, winreg.REG_NONE, b"")
+            winreg.SetValueEx(k, _prog_id_for(ext), 0, winreg.REG_NONE, b"")
 
     notify_shell_assoc_changed()
-    print("  [OK] " + PROG_ID + " ProgID registered")
-    print("       command: " + command)
+    for ext in EXTENSIONS:
+        print("  [OK] " + _prog_id_for(ext) + " ProgID registered for " + ext)
+        print("       command: " + _handler_command(ext))
 
 
-def _unregister_prog_id():
-    """Remove the pyexewrap.PyFile ProgID and all related registry entries."""
-    _delete_key_tree(HKCU, "Software\\Classes\\" + PROG_ID)
+def _unregister_prog_ids():
+    """Remove the pyexewrap ProgIDs and all related registry entries."""
+    for prog_id in (PROG_ID, PROG_ID_PYW):
+        _delete_key_tree(HKCU, "Software\\Classes\\" + prog_id)
     _delete_key_tree(HKCU, "Software\\Classes\\Applications\\" + APP_KEY)
     _delete_value(HKCU, "Software\\RegisteredApplications", APP_KEY)
     _delete_key_tree(HKCU, "Software\\" + APP_KEY)
     for ext in EXTENSIONS:
-        _delete_value(HKCU, "Software\\Classes\\" + ext + "\\OpenWithProgids", PROG_ID)
+        for prog_id in (PROG_ID, PROG_ID_PYW):
+            _delete_value(HKCU, "Software\\Classes\\" + ext + "\\OpenWithProgids", prog_id)
     notify_shell_assoc_changed()
-    print("  [OK] " + PROG_ID + " ProgID removed.")
+    print("  [OK] pyexewrap ProgIDs removed.")
 
 
 def cmd_register(elevated=False):
     saved = backup()
     print("Backup saved: " + str(saved) + "\n")
 
-    command = _handler_command()
-
-    # Step 1: register the ProgID (works for both MSIX and classic).
-    _register_prog_id(command)
+    # Step 1: register the ProgIDs (works for both MSIX and classic).
+    _register_prog_ids()
 
     # Step 2: apply the appropriate activation mechanism.
     msix = find_msix_python_package() or find_python_appx_prog_ids()
@@ -143,19 +166,22 @@ def cmd_register(elevated=False):
         # It cannot be set programmatically (protected by a hash) -- guide the user.
         print()
         d = diagnose()
-        already_active = [e for e in d.extensions if e.user_choice == PROG_ID]
-        if already_active:
+        already_active = [e for e in d.extensions
+                          if e.user_choice in (PROG_ID, PROG_ID_PYW)]
+        if len(already_active) == len(EXTENSIONS):
             exts = " and ".join(e.extension for e in already_active)
             print("[OK] pyexewrap already active for " + exts + " (UserChoice set).")
         else:
             print("[i] MSIX Python Manager detected.")
-            print("    Step 1 is done: " + PROG_ID + " ProgID is registered.")
+            print("    Step 1 is done: the pyexewrap ProgIDs are registered.")
             print()
-            print("    Step 2 (manual): set pyexewrap as the default via Windows.")
+            print("    Step 2 (manual): set pyexewrap as the default via Windows,")
+            print("    for BOTH extensions (.py and .pyw):")
             print("      Right-click a .py file > Open with > Choose another app")
             print("      > pyexewrap > Always use this app")
+            print("      then do the same with a .pyw file.")
             print()
-            print("    Or: Settings > Apps > Default apps > .py and select pyexewrap.")
+            print("    Or: Settings > Apps > Default apps > .py / .pyw and select pyexewrap.")
     else:
         # Classic: update HKLM ftype (requires admin, auto-elevate).
         if not is_admin():
@@ -170,6 +196,7 @@ def cmd_register(elevated=False):
             pid = ext.prog_id_effective
             if not pid or pid in prog_ids_done:
                 continue
+            command = _handler_command(ext.extension)
             set_command(pid, command)
             print("    Set " + pid + " -> " + command)
             prog_ids_done.add(pid)
@@ -183,13 +210,14 @@ def cmd_register(elevated=False):
 def cmd_unregister(elevated=False):
     # Capture UserChoice state before making any changes.
     d = diagnose()
-    had_user_choice = [e for e in d.extensions if e.user_choice == PROG_ID]
+    had_user_choice = [e for e in d.extensions
+                       if e.user_choice in (PROG_ID, PROG_ID_PYW)]
 
     saved = backup()
     print("Backup saved: " + str(saved) + "\n")
 
-    # Step 1: remove the ProgID (works for both MSIX and classic).
-    _unregister_prog_id()
+    # Step 1: remove the ProgIDs (works for both MSIX and classic).
+    _unregister_prog_ids()
 
     # Step 2: apply the appropriate deactivation mechanism.
     msix = find_msix_python_package() or find_python_appx_prog_ids()
@@ -197,7 +225,7 @@ def cmd_unregister(elevated=False):
         print()
         if had_user_choice:
             exts = " and ".join(e.extension for e in had_user_choice)
-            print("[i] UserChoice for " + exts + " was set to " + PROG_ID + ".")
+            print("[i] UserChoice for " + exts + " was set to pyexewrap.")
             print("    Windows may clear it automatically now that the ProgID is gone.")
             print("    If .py files still open with pyexewrap, clear it manually:")
             print("      Settings > Apps > Default apps > .py")

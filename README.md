@@ -13,8 +13,9 @@ your colleagues, or anyone you share a one-file script with:
 - An interactive menu at the pause prompt: `<i>` opens a Python console **with the
   script's real variables** (post-mortem debugging), `<c>` opens a cmd console,
   `<r>` restarts the script.
-- `.pyw` (windowed) scripts keep their console hidden — but if they crash, the console
-  reappears with the traceback instead of dying silently.
+- `.pyw` (windowed) scripts run with **no console at all** (they are registered with
+  `pythonw.exe`) — but if they crash, a console is created on the spot showing the
+  script's output and the traceback, instead of dying silently.
 - When a script is run from a console, called by another script or a batch file,
   pyexewrap stays out of the way: no pause, exit codes and arguments faithfully
   propagated.

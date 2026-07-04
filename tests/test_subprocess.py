@@ -237,6 +237,76 @@ def test_subprocess_opt_out_propagates_exit_code(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# .pyw windowless mode (parent launched without a console, like pythonw.exe)
+# ---------------------------------------------------------------------------
+
+def _run_detached(script_path, timeout=None):
+    """Invoke pyexewrap with no console at all, like a pythonw.exe launch."""
+    env = {**os.environ, "pyexewrap_simulate_doubleclick": "1"}
+    env.pop("PROMPT", None)
+    return subprocess.run(
+        [sys.executable, "-m", "pyexewrap", str(script_path)],
+        capture_output=True,
+        text=True,
+        env=env,
+        creationflags=subprocess.DETACHED_PROCESS,
+        timeout=timeout,
+    )
+
+
+def test_pyw_windowless_success_no_pause_no_console(tmp_path):
+    """A healthy .pyw script runs windowless: no pause, no console, exit 0."""
+    script = tmp_path / "quiet.pyw"
+    script.write_text('x = "windowed script, no output expected"\n', encoding="utf-8")
+
+    result = _run_detached(script, timeout=30)
+
+    assert result.returncode == 0
+    assert "Press <Enter>" not in result.stdout  # parent did not pause
+
+
+def test_pyw_windowless_output_goes_to_log_not_lost_silently(tmp_path):
+    """print() in a windowless .pyw is captured (log file), and the run succeeds."""
+    script = tmp_path / "prints.pyw"
+    script.write_text('print("output of a pyw")\n', encoding="utf-8")
+
+    result = _run_detached(script, timeout=30)
+
+    assert result.returncode == 0
+
+
+def test_pyw_windowless_exception_waits_at_menu(tmp_path):
+    """A crashing windowless .pyw creates a console and blocks at the pause menu.
+
+    This test pops a real console window on the desktop and is therefore gated
+    behind the PYEXEWRAP_UI_TESTS env var (run it manually when touching the
+    .pyw flow). The TimeoutExpired proves the child is alive, waiting at the
+    menu on its freshly created console.
+    """
+    if not os.environ.get("PYEXEWRAP_UI_TESTS"):
+        pytest.skip("UI test (pops a console window); set PYEXEWRAP_UI_TESTS=1 to run")
+
+    script = tmp_path / "crash.pyw"
+    script.write_text('print("before crash")\nraise ValueError("pyw crash")\n', encoding="utf-8")
+
+    env = {**os.environ, "pyexewrap_simulate_doubleclick": "1"}
+    env.pop("PROMPT", None)
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "pyexewrap", str(script)],
+        env=env,
+        creationflags=subprocess.DETACHED_PROCESS,
+    )
+    try:
+        with pytest.raises(subprocess.TimeoutExpired):
+            proc.wait(timeout=8)
+    finally:
+        # Kill the whole tree while the parent is still alive, so the child
+        # engine (and its freshly created console) doesn't outlive the test.
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                       capture_output=True)
+
+
+# ---------------------------------------------------------------------------
 # PEP 723 — dependency-aware execution through uv
 # ---------------------------------------------------------------------------
 

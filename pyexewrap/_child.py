@@ -60,6 +60,63 @@ class User32:
         user32.ShowWindow(h_wnd, n_cmd_show)
 
 
+def have_console():
+    """True if this process is attached to a console."""
+    import ctypes
+    return bool(ctypes.WinDLL('kernel32').GetConsoleWindow())
+
+
+def ensure_console(title=None):
+    """Attach a brand-new console to this process and rewire the standard streams.
+
+    Used by windowless .pyw execution: the console only comes into existence
+    when there is something to show (an exception). Returns False if a console
+    could not be created.
+    """
+    import ctypes
+    kernel32 = ctypes.WinDLL('kernel32')
+    if not kernel32.GetConsoleWindow():
+        if not kernel32.AllocConsole():
+            return False
+        sys.stdin = open("CONIN$", "r", encoding="utf-8", errors="replace")
+        sys.stdout = open("CONOUT$", "w", buffering=1, encoding="utf-8", errors="replace")
+        sys.stderr = open("CONOUT$", "w", buffering=1, encoding="utf-8", errors="replace")
+    if title:
+        kernel32.SetConsoleTitleW(str(title))
+    return True
+
+
+def reveal_console_for_pyw(log_file=None):
+    """Make the console visible for a crashing .pyw script.
+
+    Two situations:
+    - a console exists (script launched from a console, or legacy hidden-console
+      mode): just show its window again;
+    - no console at all (windowless mode, parent is pythonw.exe): create one on
+      the spot and replay the output captured so far in the log file.
+    """
+    if have_console():
+        User32.show_window(User32.Const.SW_SHOWDEFAULT)
+        return
+    # Flush what the script wrote to the redirected stdout/stderr (the log
+    # file) so the replay below is complete.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.flush()
+        except (OSError, ValueError, AttributeError):
+            pass
+    if not ensure_console(title=os.path.basename(sys.argv[0]) + " -- pyexewrap"):
+        return
+    if log_file:
+        try:
+            with open(log_file, encoding="utf-8", errors="replace") as f:
+                captured = f.read()
+            if captured:
+                print(captured, end="")
+        except OSError:
+            pass
+
+
 def showtraceback(script_path):
     """
     Displays the exception that just occurred, hiding the pyexewrap/runpy
@@ -199,12 +256,14 @@ def run_script(script_to_execute):
             print("script extension is " + script_extension)
             print("script_is_doubleclicked=" + str(script_is_doubleclicked))
 
-        # .pyw files should have a hidden console unless an exception occurs
-        if script_extension == ".pyw":
+        # .pyw files should have no visible console unless an exception occurs.
+        # In windowless mode (parent is pythonw.exe) there is no console at all;
+        # otherwise (legacy/CLI) the existing console window is hidden.
+        if script_extension == ".pyw" and script_is_doubleclicked and have_console():
             User32.show_window(User32.Const.SW_HIDE)  # Use SW_SHOWMINIMIZED to debug
 
         # if not run in console (but through double-click) the window title will be explicit
-        if script_is_doubleclicked and pyexewrap_must_change_title:
+        if script_is_doubleclicked and pyexewrap_must_change_title and have_console():
             os.system("title " + os.path.basename(script_to_execute) + " -- pyexewrap " + script_to_execute)
 
         ################ EXECUTION ####################
@@ -239,7 +298,7 @@ def run_script(script_to_execute):
         if script_extension == ".pyw":
             # From now on pyexewrap will consider the script as a .py file (with a pausing message to display)
             script_extension = ".py"
-            User32.show_window(User32.Const.SW_SHOWDEFAULT)
+            reveal_console_for_pyw(os.environ.get("PYEXEWRAP_PYW_LOG"))
         # Expose the script's globals to the interactive console for post-mortem debugging
         tb = sys.exc_info()[2]
         while tb is not None:

@@ -29,9 +29,23 @@ import sys
 import tempfile
 
 from pyexewrap import _script_meta
-from pyexewrap._child import STATUS_HANDLED, User32
+from pyexewrap._child import STATUS_HANDLED, User32, ensure_console, have_console
 
 UV_INSTALL_URL = "https://docs.astral.sh/uv/getting-started/installation/"
+
+
+def _console_python():
+    """The console interpreter (python.exe) even when running under pythonw.exe.
+
+    The parent of a windowless .pyw launch is pythonw.exe, but the child engine
+    needs a standard interpreter with working standard streams.
+    """
+    exe = sys.executable
+    if os.path.basename(exe).lower() == "pythonw.exe":
+        candidate = os.path.join(os.path.dirname(exe), "python.exe")
+        if os.path.exists(candidate):
+            return candidate
+    return exe
 
 
 def _script_is_doubleclicked():
@@ -48,8 +62,14 @@ def _read_status(status_file):
 
 def _fallback_pause(returncode):
     """Last-resort pause when the child could not display its own prompt."""
-    # The console may still be hidden if a .pyw script crashed hard
-    User32.show_window(User32.Const.SW_SHOWDEFAULT)
+    if sys.stdout is None or sys.stdin is None:
+        # Windowless parent (pythonw.exe): no usable stdio at all -- create a
+        # console on the spot so the failure is visible.
+        if not ensure_console(title="pyexewrap"):
+            return
+    elif have_console():
+        # The console may still be hidden if a .pyw script crashed hard
+        User32.show_window(User32.Const.SW_SHOWDEFAULT)
     if returncode != 0:
         print("\nThe script ended (exit code " + str(returncode) + ") without pyexewrap being able to pause.")
     try:
@@ -74,7 +94,7 @@ def _find_uv():
 
 def _build_child_command(script, script_args, env):
     """Build the child command line, delegating to `uv run` for PEP 723 scripts."""
-    default_cmd = [sys.executable, "-m", "pyexewrap._child", script] + script_args
+    default_cmd = [_console_python(), "-m", "pyexewrap._child", script] + script_args
 
     meta = _script_meta.parse_pep723(_script_meta.read_script_text(script))
     if meta is None:
@@ -132,20 +152,43 @@ def main():
 
     cmd = _build_child_command(script, script_args, env)
 
+    # Windowless mode: a double-clicked .pyw arrives here through pythonw.exe,
+    # so this parent has no console. The child runs fully detached (no console
+    # either), its output captured in a log file. Only if an exception occurs
+    # does the child create a console (AllocConsole) and replay the log there.
+    windowless = os.path.splitext(script)[1].lower() == ".pyw" and not have_console()
+    run_kwargs = {}
+    log_file = None
+    log_handle = None
+    if windowless:
+        fd, log_file = tempfile.mkstemp(prefix="pyexewrap_pyw_", suffix=".log")
+        log_handle = os.fdopen(fd, "w", encoding="utf-8", errors="replace")
+        env["PYEXEWRAP_PYW_LOG"] = log_file
+        run_kwargs = {
+            "stdin": subprocess.DEVNULL,
+            "stdout": log_handle,
+            "stderr": subprocess.STDOUT,
+            "creationflags": subprocess.DETACHED_PROCESS,
+        }
+
     # Ctrl+C is sent to every process attached to the console. The child is
     # the one that must handle it (KeyboardInterrupt in the script, then its
     # pause menu); the parent must survive to display the fallback pause.
     previous_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
-        result = subprocess.run(cmd, env=env)
+        result = subprocess.run(cmd, env=env, **run_kwargs)
     finally:
         signal.signal(signal.SIGINT, previous_handler)
+        if log_handle:
+            log_handle.close()
 
     child_handled = _read_status(status_file) == STATUS_HANDLED
-    try:
-        os.remove(status_file)
-    except OSError:
-        pass
+    for temp_file in (status_file, log_file):
+        if temp_file:
+            try:
+                os.remove(temp_file)
+            except OSError:
+                pass
 
     if not child_handled and _script_is_doubleclicked():
         _fallback_pause(result.returncode)
