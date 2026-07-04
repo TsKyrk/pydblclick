@@ -51,8 +51,17 @@ def _fallback_pause(returncode):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python -m pyexewrap <script.py> [args...]")
+        print("Usage: pyexewrap <script.py> [args...]")
+        print("       pyexewrap register    (set pyexewrap as the .py/.pyw double-click handler)")
+        print("       pyexewrap unregister  (restore plain Python on double-click)")
+        print("       pyexewrap diagnose    (inspect the Windows file association chain)")
         return 2
+
+    # Management subcommands (a real script file named e.g. 'register' still wins)
+    from pyexewrap._cli import COMMANDS
+    if sys.argv[1] in COMMANDS and not os.path.exists(sys.argv[1]):
+        from pyexewrap import _cli
+        return _cli.main(sys.argv[1:])
 
     # The status file is how the child tells us "I already paused (or decided
     # a pause was not needed)". It survives any way the child may die.

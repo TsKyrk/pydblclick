@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["pyexewrap*"]
+include = ["pyexewrap*", "winpyfiles*"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
