@@ -1,0 +1,91 @@
+# pyexewrap — Roadmap (2026 pivot)
+
+## Why this pivot
+
+The original delivery mechanism — a shebang line `#!/usr/bin/env python -m pyexewrap`
+read by the classic `py.exe` launcher — is dying:
+
+- The classic `py.exe` launcher is **deprecated since Python 3.14** and will not be
+  produced for Python 3.16+.
+- The **MSIX Python Manager** (pymanager), now the default way to install Python on
+  Windows, intercepts `.py`/`.pyw` double-clicks via App Model activation, never reads
+  the shebang for module invocation, and its shebang support **does not allow arguments**
+  such as `-m pyexewrap` (custom `shebang_templates` only accept `py`, `py -3.x`,
+  `py -V:<tag>`).
+
+What survives — confirmed by testing (see [MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md)):
+the **ProgID + UserChoice** registration (`pyexewrap.PyFile`), i.e. the standard way any
+Windows application registers itself as a file handler. It works with and without MSIX.
+
+The pivot therefore recomposes the project around three ideas:
+
+1. **ProgID/UserChoice registration is the primary mechanism** (ByDefaultActivation +
+   winpyfiles are promoted from "add-on" to core).
+2. **Subprocess execution replaces in-process `exec()`** — removes the monkey-patching
+   of `exit()`/`quit()`, the manual namespace reconstruction, and the traceback surgery.
+   The post-mortem interactive console is provided by the child interpreter itself
+   (`python -i` / `PYTHONINSPECT`).
+3. **PEP 723 + uv integration** finally covers the dependency half of the original goal:
+   one-file scripts that colleagues can double-click without managing venvs — the handler
+   detects the `# /// script` metadata block and delegates execution to `uv run`.
+
+Dropping the shebang also **frees the installation story**: the registered handler command
+can point to anything, so `pip install pyexewrap` / a standalone `pyexewrap.exe` become
+possible (the PYTHONPATH hack existed only because the shebang went through the system
+Python).
+
+## Phases
+
+### Phase 0 — Acknowledge the pivot (docs)
+- [x] Fix the README ↔ MSIX_COMPATIBILITY.md contradiction (shebang under MSIX: **No**)
+- [x] Mark the shebang method as legacy in the README, point to ByDefaultActivation
+- [x] Write this roadmap
+
+### Phase 1 — Core: subprocess execution model
+- [ ] Refactor `run_script()` to launch the target script as a child process
+      (`python script.py`), with the pause prompt/menu handled by the parent
+- [ ] Post-mortem REPL (`<i>` menu option) via `-i` / `PYTHONINSPECT` in the child
+      interpreter (exact interpreter semantics, real locals)
+- [ ] Remove the `exit()`/`quit()` monkey-patching and the `globalsParameter`
+      namespace reconstruction (both become unnecessary with a child process)
+- [ ] `.pyw` handling in subprocess mode: hidden console, re-shown when the child
+      exit code is non-zero
+- [ ] Detect failure via child exit code; keep `<c>`/`<i>`/`<r>` menu behaviour
+- [ ] Adapt `tests/` (pytest) and `unit_tests/` (manual UX scenarios) to the new model
+
+### Phase 2 — Modern installation
+- [ ] Make the package pip-installable: `pyproject.toml` with a `pyexewrap` console
+      entry point (the PYTHONPATH/`add_to_pythonpath.py` approach becomes legacy)
+- [ ] `pyexewrap register` / `pyexewrap unregister` CLI commands — merge
+      `tools/ByDefaultActivation/activate.py`/`disable.py` and winpyfiles into the
+      main CLI (ProgID + UserChoice flow, automatic backup)
+- [ ] Build a small standalone handler exe (modernize `tools/pyexewrap_exe`) so the
+      registered command does not depend on which Python is on PATH
+
+### Phase 3 — Dependency management (PEP 723 / uv)
+- [ ] Detect the PEP 723 `# /// script` block in the target script; if present,
+      execute via `uv run` instead of plain `python`
+- [ ] Graceful fallback when uv is not installed (clear message + install link;
+      optionally offer to install it)
+- [ ] Per-script opt-out directive read by the wrapper itself (e.g. `# pyexewrap: off`
+      comment) — replaces the per-script granularity the shebang used to provide
+
+### Phase 4 — Distribution
+- [ ] Rewrite the README around the new flow: install → `pyexewrap register` →
+      double-click any script (PEP 723 aware)
+- [ ] Publish to PyPI
+
+## Non-goals
+
+- Becoming a home-made IDE. The value of pyexewrap is being a thin, invisible wrapper;
+  IDE-like features (code injection, heavy customization) are out of scope.
+- Supporting the shebang mechanism beyond legacy documentation.
+
+## References
+
+- [MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md) — tested compatibility matrix
+- [Using Python on Windows](https://docs.python.org/3/using/windows.html) — pymanager
+  shebang rules, deprecation timeline
+- [PEP 773](https://peps.python.org/pep-0773/) — the Python Install Manager
+- [PEP 723](https://peps.python.org/pep-0723/) — inline script metadata
+- [uv — Running scripts](https://docs.astral.sh/uv/guides/scripts/)

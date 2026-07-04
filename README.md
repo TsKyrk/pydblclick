@@ -48,6 +48,14 @@ pyexewrap is invoked by `py.exe` via a shebang line. `py.exe` uses the system Py
 The command line `python -m pyexewrap <myscript.py>` will run pyexewrap on your scripts. This has no added value at the moment (unless you're aiming for the bonus features of the tool). But this command helps you understand how the tool wraps the other scripts.
 
 # Double-click usage on a script (the main purpose of this tool)
+
+> **⚠ Direction change (2026):** the shebang approach below relies on the classic `py.exe`
+> launcher, which is deprecated since Python 3.14 and bypassed by the MSIX Python Manager
+> (see [Compatibility with the MSIX Python Manager](#compatibility-with-the-msix-python-manager-pythonpymanager)).
+> The **recommended, future-proof method** is now the [ByDefaultActivation add-on](#enhancing-without-a-shebang-line)
+> (ProgID + UserChoice), which works with and without MSIX. The shebang method remains
+> documented for classic-installer systems.
+
 ## Enhancing with a shebang + py.exe
 As a Windows user you should have py.exe on your machine. Hence your Python scripts can be enhanced using a shebang on the first line of code: `#!/usr/bin/env/ python -m pyexewrap`. Then, once double-clicked, your scripts will behave as mentionned above. Try double-clicking on the example scripts provided in the folder "examples" for a better understanding of the added value of enhancing the scripts. The behaviour of enhanced scripts should remain unchanged if called by other scripts (since only py.exe would read the shebang line of the first clicked script).
 
@@ -101,30 +109,35 @@ pyexewrap_customizations['must_pause_in_console'] = False
 
 The `PythonSoftwareFoundation.PythonManager` MSIX package (from the Microsoft Store or the
 "Python Install Manager" on python.org) uses Windows App Model activation to handle `.py`/`.pyw`
-double-clicks, **bypassing all registry ftype settings**. This affects the two invocation modes
-differently:
+double-clicks, **bypassing the shebang mechanism and all registry ftype settings**. This affects
+the invocation modes differently (confirmed by testing, see
+[MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md) for the full matrix):
 
 | Invocation method | Works with MSIX? |
 |---|---|
-| Shebang `#!/usr/bin/env python -m pyexewrap` in the script | **Yes** ✓ |
-| ByDefaultActivation (registry ftype, no shebang needed) | **No** ✗ |
+| ByDefaultActivation via `activate.py` (ProgID + UserChoice) | **Yes** ✓ |
+| Shebang `#!/usr/bin/env python -m pyexewrap` in the script | **No** ✗ |
 
-The shebang approach works because the MSIX package includes its own `py.exe` launcher that
-reads shebang lines and invokes pyexewrap correctly (confirmed by testing).
+The shebang approach does **not** work under MSIX: the Python Manager invokes `python.exe`
+directly on the script — the classic `py.exe` is never called and the shebang is treated as a
+plain comment. Moreover, the pymanager shebang support does not allow arguments such as
+`-m pyexewrap` (see the [official documentation](https://docs.python.org/3/using/windows.html)),
+and the classic `py.exe` launcher is deprecated since Python 3.14 (removed for 3.16+).
 
-**Symptom of the broken case:** scripts without a shebang line are not wrapped by pyexewrap
-on double-click, even after running `tools/ByDefaultActivation/activate.py`. The registry
-changes are silently ignored by the App Model.
+**Symptom of the broken case:** scripts with a shebang line are not wrapped by pyexewrap
+on double-click; they run as plain Python.
 
 **Diagnosis:** Run `py -m winpyfiles diagnose` — it will show a `[!!] MSIX Python Manager detected`
-warning, indicating that registry-based file association changes have no effect.
+warning, indicating that shebang-based and registry-ftype-based invocation have no effect.
 
-**Resolution for ByDefaultActivation users:**
-- Option A: Run `py -m winpyfiles remove-msix` to uninstall the MSIX package, then install the
+**Resolution:**
+- Option A (recommended, future-proof): Run `py tools/ByDefaultActivation/activate.py` — it
+  registers the `pyexewrap.PyFile` ProgID and guides you to set it as default via Windows
+  Settings (UserChoice). This works with and without MSIX.
+- Option B: Run `py -m winpyfiles remove-msix` to uninstall the MSIX package, then install the
   **classic Setup.exe** from https://www.python.org/downloads/windows/ (file named
   `python-3.x.x-amd64.exe`, **not** the "Python Install Manager" which is itself MSIX).
-- Option B: Add a shebang line to each script instead of relying on ByDefaultActivation.
-- Option C: In Windows Settings > Apps > Default apps, manually set the default app for `.py`/`.pyw`.
+  Note this option disappears with Python 3.16 (the classic installer is deprecated).
 
 # Contributions
 I am a newbie to python. Your contributions would be greatly appreciated. Feel free to copy the project.
