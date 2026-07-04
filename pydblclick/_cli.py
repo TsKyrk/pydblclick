@@ -1,12 +1,12 @@
-"""Management CLI of pyexewrap: register / unregister / diagnose.
+"""Management CLI of pydblclick: register / unregister / diagnose.
 
-`pyexewrap register` makes pyexewrap the default double-click handler for
+`pydblclick register` makes pydblclick the default double-click handler for
 .py/.pyw files through the standard Windows mechanism (ProgID + UserChoice),
 which works with and without the MSIX Python Manager. This replaces the
 legacy shebang approach (see ROADMAP.md).
 
 The registered handler command points to the interpreter running this CLI
-(sys.executable): by definition it can import pyexewrap, so no PYTHONPATH
+(sys.executable): by definition it can import pydblclick, so no PYTHONPATH
 setup is needed. Consolidates tools/ByDefaultActivation/activate.py and
 disable.py into the package itself.
 """
@@ -21,12 +21,16 @@ from winpyfiles._registry import HKCU, write_value, notify_shell_assoc_changed
 from winpyfiles._elevation import is_admin
 from winpyfiles._backup import backup
 
-PROG_ID = "pyexewrap.PyFile"
-PROG_ID_PYW = "pyexewrap.PywFile"
-APP_KEY = "pyexewrap"
-APP_DISPLAY_NAME = "pyexewrap"
+PROG_ID = "pydblclick.PyFile"
+PROG_ID_PYW = "pydblclick.PywFile"
+APP_KEY = "pydblclick"
+APP_DISPLAY_NAME = "pydblclick"
 APP_DESCRIPTION = "Python script launcher with pause prompt, error display and interactive menu"
 EXTENSIONS = (".py", ".pyw")
+
+# Registry entries left behind by installs of the project's former name
+LEGACY_PROG_IDS = ("pyexewrap.PyFile", "pyexewrap.PywFile")
+LEGACY_APP_KEY = "pyexewrap"
 
 COMMANDS = ("register", "unregister", "diagnose")
 
@@ -45,7 +49,7 @@ def _handler_command(extension=".py"):
             the script raises an exception)
     """
     exe = _pythonw() if extension == ".pyw" else sys.executable
-    return '"' + exe + '" -m pyexewrap "%1" %*'
+    return '"' + exe + '" -m pydblclick "%1" %*'
 
 
 def _prog_id_for(extension):
@@ -54,7 +58,7 @@ def _prog_id_for(extension):
 
 def _elevate_and_rerun(subcommand):
     """Re-run this subcommand in an elevated console via UAC."""
-    params = "-m pyexewrap " + subcommand + " --elevated"
+    params = "-m pydblclick " + subcommand + " --elevated"
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
 
 
@@ -92,7 +96,7 @@ def _delete_value(hive, key_path, value_name):
 
 
 def _register_prog_ids():
-    """Create the pyexewrap ProgIDs (one per extension) and related registry entries."""
+    """Create the pydblclick ProgIDs (one per extension) and related registry entries."""
     icon = '"' + sys.executable + '",0'
 
     for ext in EXTENSIONS:
@@ -138,8 +142,20 @@ def _register_prog_ids():
         print("       command: " + _handler_command(ext))
 
 
+def _remove_legacy_entries():
+    """Remove registry entries registered under the project's former name."""
+    for prog_id in LEGACY_PROG_IDS:
+        _delete_key_tree(HKCU, "Software\\Classes\\" + prog_id)
+    _delete_key_tree(HKCU, "Software\\Classes\\Applications\\" + LEGACY_APP_KEY)
+    _delete_value(HKCU, "Software\\RegisteredApplications", LEGACY_APP_KEY)
+    _delete_key_tree(HKCU, "Software\\" + LEGACY_APP_KEY)
+    for ext in EXTENSIONS:
+        for prog_id in LEGACY_PROG_IDS:
+            _delete_value(HKCU, "Software\\Classes\\" + ext + "\\OpenWithProgids", prog_id)
+
+
 def _unregister_prog_ids():
-    """Remove the pyexewrap ProgIDs and all related registry entries."""
+    """Remove the pydblclick ProgIDs and all related registry entries."""
     for prog_id in (PROG_ID, PROG_ID_PYW):
         _delete_key_tree(HKCU, "Software\\Classes\\" + prog_id)
     _delete_key_tree(HKCU, "Software\\Classes\\Applications\\" + APP_KEY)
@@ -148,15 +164,18 @@ def _unregister_prog_ids():
     for ext in EXTENSIONS:
         for prog_id in (PROG_ID, PROG_ID_PYW):
             _delete_value(HKCU, "Software\\Classes\\" + ext + "\\OpenWithProgids", prog_id)
+    _remove_legacy_entries()
     notify_shell_assoc_changed()
-    print("  [OK] pyexewrap ProgIDs removed.")
+    print("  [OK] pydblclick ProgIDs removed (legacy pyexewrap entries cleaned too).")
 
 
 def cmd_register(elevated=False):
     saved = backup()
     print("Backup saved: " + str(saved) + "\n")
 
-    # Step 1: register the ProgIDs (works for both MSIX and classic).
+    # Step 1: register the ProgIDs (works for both MSIX and classic),
+    # cleaning up entries from the project's former name (pyexewrap) first.
+    _remove_legacy_entries()
     _register_prog_ids()
 
     # Step 2: apply the appropriate activation mechanism.
@@ -170,18 +189,18 @@ def cmd_register(elevated=False):
                           if e.user_choice in (PROG_ID, PROG_ID_PYW)]
         if len(already_active) == len(EXTENSIONS):
             exts = " and ".join(e.extension for e in already_active)
-            print("[OK] pyexewrap already active for " + exts + " (UserChoice set).")
+            print("[OK] pydblclick already active for " + exts + " (UserChoice set).")
         else:
             print("[i] MSIX Python Manager detected.")
-            print("    Step 1 is done: the pyexewrap ProgIDs are registered.")
+            print("    Step 1 is done: the pydblclick ProgIDs are registered.")
             print()
-            print("    Step 2 (manual): set pyexewrap as the default via Windows,")
+            print("    Step 2 (manual): set pydblclick as the default via Windows,")
             print("    for BOTH extensions (.py and .pyw):")
             print("      Right-click a .py file > Open with > Choose another app")
-            print("      > pyexewrap > Always use this app")
+            print("      > pydblclick > Always use this app")
             print("      then do the same with a .pyw file.")
             print()
-            print("    Or: Settings > Apps > Default apps > .py / .pyw and select pyexewrap.")
+            print("    Or: Settings > Apps > Default apps > .py / .pyw and select pydblclick.")
     else:
         # Classic: update HKLM ftype (requires admin, auto-elevate).
         if not is_admin():
@@ -202,7 +221,7 @@ def cmd_register(elevated=False):
             prog_ids_done.add(pid)
 
     print()
-    print("Done. Run 'pyexewrap diagnose' to verify.")
+    print("Done. Run 'pydblclick diagnose' to verify.")
     _pause_if_elevated(elevated)
     return 0
 
@@ -225,13 +244,13 @@ def cmd_unregister(elevated=False):
         print()
         if had_user_choice:
             exts = " and ".join(e.extension for e in had_user_choice)
-            print("[i] UserChoice for " + exts + " was set to pyexewrap.")
+            print("[i] UserChoice for " + exts + " was set to pydblclick.")
             print("    Windows may clear it automatically now that the ProgID is gone.")
-            print("    If .py files still open with pyexewrap, clear it manually:")
+            print("    If .py files still open with pydblclick, clear it manually:")
             print("      Settings > Apps > Default apps > .py")
             print("      and select a different application (e.g. Python).")
         else:
-            print("[OK] pyexewrap was not set as UserChoice -- no manual steps needed.")
+            print("[OK] pydblclick was not set as UserChoice -- no manual steps needed.")
     else:
         # Classic: reset HKLM ftype to plain Python launcher (requires admin).
         if not is_admin():
@@ -256,7 +275,7 @@ def cmd_unregister(elevated=False):
                 prog_ids_done.add(pid)
 
     print()
-    print("Done. Run 'pyexewrap diagnose' to verify.")
+    print("Done. Run 'pydblclick diagnose' to verify.")
     _pause_if_elevated(elevated)
     return 0
 

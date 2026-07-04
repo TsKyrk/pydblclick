@@ -1,5 +1,5 @@
-"""Unit tests for pyexewrap._script_meta (opt-out directive, PEP 723 parsing)."""
-from pyexewrap._script_meta import extract_pep723_toml, has_opt_out, parse_pep723
+"""Unit tests for pydblclick._script_meta (opt-out directive, PEP 723 parsing)."""
+from pydblclick._script_meta import extract_pep723_toml, has_opt_out, parse_pep723
 
 
 # ---------------------------------------------------------------------------
@@ -7,18 +7,23 @@ from pyexewrap._script_meta import extract_pep723_toml, has_opt_out, parse_pep72
 # ---------------------------------------------------------------------------
 
 def test_opt_out_detected():
-    assert has_opt_out("# pyexewrap: off\nprint('hi')\n") is True
+    assert has_opt_out("# pydblclick: off\nprint('hi')\n") is True
 
 
 def test_opt_out_case_and_spacing_tolerant():
     assert has_opt_out("#PYEXEWRAP:  OFF\n") is True
-    assert has_opt_out("  \n#  pyexewrap : off\n") is False  # space before ':' not allowed
-    assert has_opt_out("# pyexewrap: off\r\nprint('crlf')\r\n") is True
+    assert has_opt_out("  \n#  pydblclick : off\n") is False  # space before ':' not allowed
+    assert has_opt_out("# pydblclick: off\r\nprint('crlf')\r\n") is True
+
+
+def test_opt_out_legacy_name_still_accepted():
+    # "pyexewrap" is the project's former name; existing scripts keep working
+    assert has_opt_out("# pyexewrap: off\nprint('hi')\n") is True
 
 
 def test_opt_out_absent():
     assert has_opt_out("print('no directive')\n") is False
-    assert has_opt_out("s = '# pyexewrap: off'  # inside a string, same line\n") is False
+    assert has_opt_out("s = '# pydblclick: off'  # inside a string, same line\n") is False
 
 
 # ---------------------------------------------------------------------------

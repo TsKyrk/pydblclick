@@ -8,7 +8,7 @@ from ._elevation import is_admin, elevate_and_rerun
 
 
 def _check_pth_file() -> bool:
-    """Return True if pyexewrap.pth is present in py.exe's site-packages."""
+    """Return True if pydblclick.pth is present in py.exe's site-packages."""
     try:
         result = subprocess.run(
             ["py", "-c", "import site; print(site.getsitepackages()[0])"],
@@ -17,7 +17,7 @@ def _check_pth_file() -> bool:
         if result.returncode != 0 or not result.stdout.strip():
             return False
         import pathlib
-        return (pathlib.Path(result.stdout.strip()) / "pyexewrap.pth").exists()
+        return (pathlib.Path(result.stdout.strip()) / "pydblclick.pth").exists()
     except Exception:
         return False
 
@@ -87,11 +87,11 @@ Windows reads settings from registry locations, in priority order:
         print(f"    Status          : {status}")
         print()
 
-    _PYEXEWRAP_PROG_ID = "pyexewrap.PyFile"
+    _PYDBLCLICK_PROG_ID = "pydblclick.PyFile"
     _bda_user_choices = {
         ext.extension: ext.user_choice
         for ext in d.extensions
-        if ext.user_choice == _PYEXEWRAP_PROG_ID
+        if ext.user_choice == _PYDBLCLICK_PROG_ID
     }
     _bda_active = bool(_bda_user_choices)
     _pth_reliable = _check_pth_file()
@@ -105,22 +105,22 @@ Windows reads settings from registry locations, in priority order:
             print(f"    {prog_id}")
             print(f"      command : {cmd}")
         print()
-        print("  Compatibility with pyexewrap:")
+        print("  Compatibility with pydblclick:")
         print()
         print("    [!!] activate.py AppX/HKLM registry layers: do NOT work.")
         print("         The App Model reads AppxManifest.xml directly, bypassing all registry")
         print("         ftype/assoc/shell\\open\\command changes.")
         print()
-        print("    [!!] Shebang approach (#!/usr/bin/env python -m pyexewrap): does NOT work.")
+        print("    [!!] Shebang approach (#!/usr/bin/env python -m pydblclick): does NOT work.")
         print("         The Python Manager invokes python.exe directly -- py.exe is never called,")
-        print("         the shebang line is treated as a Python comment, pyexewrap is never invoked.")
+        print("         the shebang line is treated as a Python comment, pydblclick is never invoked.")
         print()
         if _bda_active:
             print("    [OK] ByDefaultActivation via activate.py + UserChoice: active.")
-            print("         UserChoice is set to pyexewrap.PyFile -- all .py/.pyw files")
-            print("         will be wrapped by pyexewrap on double-click (with or without shebang).")
+            print("         UserChoice is set to pydblclick.PyFile -- all .py/.pyw files")
+            print("         will be wrapped by pydblclick on double-click (with or without shebang).")
         else:
-            print("    [!!] ByDefaultActivation: inactive -- pyexewrap is NOT invoked on double-click.")
+            print("    [!!] ByDefaultActivation: inactive -- pydblclick is NOT invoked on double-click.")
             print("         The shebang approach does not work under MSIX (see above).")
             print("         To enable: run 'py tools/ByDefaultActivation/activate.py'")
             print("         and follow the on-screen instructions to set UserChoice via Windows.")
@@ -157,13 +157,13 @@ Windows reads settings from registry locations, in priority order:
             warnings.append(f"{ext.extension}: ProgID '{effective_pid}' has no command")
 
     if _pth_reliable:
-        print("  pyexewrap.pth : [OK] found in site-packages -- importable in all contexts (incl. MSIX)")
+        print("  pydblclick.pth : [OK] found in site-packages -- importable in all contexts (incl. MSIX)")
     else:
-        print("  pyexewrap.pth : [?]  not found -- shebang unreliable under MSIX double-click")
+        print("  pydblclick.pth : [?]  not found -- shebang unreliable under MSIX double-click")
         print("                       Fix: re-run add_to_pythonpath.py")
 
     if d.msix_handlers:
-        shebang_status = "reliable (pyexewrap.pth present)" if _pth_reliable else "UNRELIABLE (pyexewrap.pth missing -- re-run add_to_pythonpath.py)"
+        shebang_status = "reliable (pydblclick.pth present)" if _pth_reliable else "UNRELIABLE (pydblclick.pth missing -- re-run add_to_pythonpath.py)"
         if _bda_active:
             warnings.insert(0,
                 "MSIX Python Manager is active -- activate.py registry layers have NO EFFECT. "
@@ -173,7 +173,7 @@ Windows reads settings from registry locations, in priority order:
         else:
             warnings.insert(0,
                 "MSIX Python Manager is active -- activate.py registry layers have NO EFFECT. "
-                "ByDefaultActivation is inactive (UserChoice not set to pyexewrap.PyFile). "
+                "ByDefaultActivation is inactive (UserChoice not set to pydblclick.PyFile). "
                 f"Shebang approach: {shebang_status}. See 'MSIX AppX Handlers' section above."
             )
 

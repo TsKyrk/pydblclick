@@ -1,4 +1,4 @@
-#!/usr/bin/env python -m pyexewrap
+#!/usr/bin/env python -m pydblclick
 from tkinter import *
 root = Tk()
 a = Label(root, text ="Hello World")

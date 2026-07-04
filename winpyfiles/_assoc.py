@@ -94,7 +94,7 @@ def _is_app_execution_alias(path: str) -> bool:
 
     Concretely: shutil.which("py") may return the WindowsApps stub, but writing
     that path into the registry ftype command results in a no-op when double-clicking
-    a .py file -- the script runs via a fallback mechanism that bypasses pyexewrap.
+    a .py file -- the script runs via a fallback mechanism that bypasses pydblclick.
     """
     return "\\WindowsApps\\" in path
 

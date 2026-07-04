@@ -1,2 +1,2 @@
-#!/usr/bin/env python -m pyexewrap
+#!/usr/bin/env python -m pydblclick
 print("hello world"

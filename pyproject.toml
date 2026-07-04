@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyexewrap"
+name = "pydblclick"
 version = "0.2.0"
 description = "Enhances the user experience of Python scripts run via double-click on Windows"
 readme = "README.md"
@@ -19,16 +19,16 @@ classifiers = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["pyexewrap*", "winpyfiles*"]
+include = ["pydblclick*", "winpyfiles*"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
 
 [project.urls]
-Repository = "https://github.com/TsKyrk/pyexewrap"
+Repository = "https://github.com/TsKyrk/pydblclick"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [project.scripts]
-pyexewrap = "pyexewrap.__main__:main"
+pydblclick = "pydblclick.__main__:main"

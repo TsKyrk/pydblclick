@@ -2,8 +2,8 @@
 
 REM Convert a python script into an exe
 pip install pyinstaller
-set exe_name=pyexewrap
-pyinstaller --onefile pyexewrap_exe.py --name %exe_name%
+set exe_name=pydblclick
+pyinstaller --onefile pydblclick_exe.py --name %exe_name%
 
 REM Copy the exe into a folder known by the windows PATH (we use the python/Script folder)
 for /f %%A in ('py -c "import sys, os; print(os.path.join(os.path.split(sys.executable)[0],'Scripts'))"') do set "exe_location=%%A"

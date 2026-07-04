@@ -1,4 +1,4 @@
-#! /usr/bin/env python -m pyexewrap
+#! /usr/bin/env python -m pydblclick
 import pprint as pp
 from os import system
 

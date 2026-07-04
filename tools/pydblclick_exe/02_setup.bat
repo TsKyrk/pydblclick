@@ -56,7 +56,7 @@ assoc | findstr -i python       >> Backup_Full.txt
 ftype | findstr -i Python.File  >  Backup_One.txt
 
 :Define the new file association (.py are bind to Python.File,  Python.File is bind to <cmd "%%1" %%*>
-ftype Python.File="%exe_location%\pyexewrap.exe" ^"%%L^" %%*
+ftype Python.File="%exe_location%\pydblclick.exe" ^"%%L^" %%*
 
 :pause
 REM pause only if double-clicked:

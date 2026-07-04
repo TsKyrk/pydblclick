@@ -1,12 +1,12 @@
-"""Automated regression tests for pyexewrap.
+"""Automated regression tests for pydblclick.
 
 These tests verify the core behavior of the tool and protect against regressions.
-They call run_script() from pyexewrap._child directly (in-process).
+They call run_script() from pydblclick._child directly (in-process).
 For interactive ergonomic tests demonstrating the tool's UX, see unit_tests/.
 """
 import os
 import pytest
-from pyexewrap._child import run_script
+from pydblclick._child import run_script
 
 
 @pytest.fixture(autouse=True)
@@ -17,7 +17,7 @@ def cli_mode(monkeypatch):
     Tests that need to simulate a double-click override this fixture.
     """
     monkeypatch.setenv("PROMPT", ">")
-    monkeypatch.delenv("pyexewrap_simulate_doubleclick", raising=False)
+    monkeypatch.delenv("pydblclick_simulate_doubleclick", raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@ def test_pause_in_doubleclick_mode(tmp_path, monkeypatch):
     script.write_text("x = 1", encoding="utf-8")
 
     monkeypatch.delenv("PROMPT", raising=False)
-    monkeypatch.setenv("pyexewrap_simulate_doubleclick", "1")
+    monkeypatch.setenv("pydblclick_simulate_doubleclick", "1")
 
     pause, _ = run_script(str(script))
     assert pause is True
@@ -83,7 +83,7 @@ def test_import_accessible_inside_function(tmp_path, capsys):
 
 
 # ---------------------------------------------------------------------------
-# E002 — clean exception traceback (no pyexewrap frame)
+# E002 — clean exception traceback (no pydblclick frame)
 # ---------------------------------------------------------------------------
 
 def test_exception_shows_traceback(tmp_path, capsys):
@@ -99,10 +99,10 @@ def test_exception_shows_traceback(tmp_path, capsys):
     assert code != 0
 
 
-def test_traceback_excludes_pyexewrap_frame(tmp_path, capsys):
-    """The traceback does not expose pyexewrap's internal frames (E002 regression).
+def test_traceback_excludes_pydblclick_frame(tmp_path, capsys):
+    """The traceback does not expose pydblclick's internal frames (E002 regression).
 
-    The traceback must start at the user's script, not at pyexewrap's
+    The traceback must start at the user's script, not at pydblclick's
     run_script()/runpy internals.
     """
     script = tmp_path / "e002_clean.py"
@@ -111,7 +111,7 @@ def test_traceback_excludes_pyexewrap_frame(tmp_path, capsys):
     run_script(str(script))
 
     out = capsys.readouterr().out
-    # The traceback must point to the user's script, not to pyexewrap internals
+    # The traceback must point to the user's script, not to pydblclick internals
     assert str(script) in out
     assert "runpy" not in out
     assert "_child.py" not in out
@@ -134,7 +134,7 @@ def test_syntax_error_shows_location(tmp_path, capsys):
 # E003 — exit() / quit() / SystemExit handled gracefully
 # ---------------------------------------------------------------------------
 
-def test_exit_does_not_crash_pyexewrap(tmp_path):
+def test_exit_does_not_crash_pydblclick(tmp_path):
     """exit() in a script is handled gracefully (E003 regression)."""
     script = tmp_path / "e003_exit.py"
     script.write_text("exit(0)", encoding="utf-8")
@@ -143,7 +143,7 @@ def test_exit_does_not_crash_pyexewrap(tmp_path):
     assert code == 0
 
 
-def test_quit_does_not_crash_pyexewrap(tmp_path):
+def test_quit_does_not_crash_pydblclick(tmp_path):
     """quit() in a script is handled gracefully (E003 regression)."""
     script = tmp_path / "e003_quit.py"
     script.write_text("quit(0)", encoding="utf-8")
@@ -152,7 +152,7 @@ def test_quit_does_not_crash_pyexewrap(tmp_path):
     assert code == 0
 
 
-def test_systemexit_does_not_crash_pyexewrap(tmp_path):
+def test_systemexit_does_not_crash_pydblclick(tmp_path):
     """raise SystemExit() in a script is handled gracefully (E003 regression)."""
     script = tmp_path / "e003_systemexit.py"
     script.write_text("raise SystemExit(0)", encoding="utf-8")
@@ -213,28 +213,56 @@ def test_must_pause_false_suppresses_pause(tmp_path, monkeypatch):
     """Setting must_pause_in_console=False prevents the pause even in double-click mode."""
     script = tmp_path / "no_pause.py"
     script.write_text(
+        "pydblclick_customizations['must_pause_in_console'] = False\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.delenv("PROMPT", raising=False)
+    monkeypatch.setenv("pydblclick_simulate_doubleclick", "1")
+
+    pause, _ = run_script(str(script))
+    assert pause is False
+
+
+def test_legacy_customizations_name_still_works(tmp_path, monkeypatch):
+    """Scripts written for the former name (pyexewrap_customizations) keep working."""
+    script = tmp_path / "legacy_name.py"
+    script.write_text(
         "pyexewrap_customizations['must_pause_in_console'] = False\n",
         encoding="utf-8",
     )
 
     monkeypatch.delenv("PROMPT", raising=False)
-    monkeypatch.setenv("pyexewrap_simulate_doubleclick", "1")
+    monkeypatch.setenv("pydblclick_simulate_doubleclick", "1")
 
     pause, _ = run_script(str(script))
     assert pause is False
+
+
+def test_legacy_simulate_doubleclick_env_var(tmp_path, monkeypatch):
+    """The former env var name pyexewrap_simulate_doubleclick is still honored."""
+    script = tmp_path / "noop.py"
+    script.write_text("x = 1", encoding="utf-8")
+
+    monkeypatch.delenv("PROMPT", raising=False)
+    monkeypatch.delenv("pydblclick_simulate_doubleclick", raising=False)
+    monkeypatch.setenv("pyexewrap_simulate_doubleclick", "1")
+
+    pause, _ = run_script(str(script))
+    assert pause is True
 
 
 def test_exception_forces_pause_despite_customization(tmp_path, monkeypatch, capsys):
     """An uncaught exception overrides must_pause_in_console=False and forces a pause."""
     script = tmp_path / "forced_pause.py"
     script.write_text(
-        "pyexewrap_customizations['must_pause_in_console'] = False\n"
+        "pydblclick_customizations['must_pause_in_console'] = False\n"
         "raise RuntimeError('forced')\n",
         encoding="utf-8",
     )
 
     monkeypatch.delenv("PROMPT", raising=False)
-    monkeypatch.setenv("pyexewrap_simulate_doubleclick", "1")
+    monkeypatch.setenv("pydblclick_simulate_doubleclick", "1")
 
     pause, _ = run_script(str(script))
     assert pause is True

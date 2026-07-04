@@ -1,14 +1,14 @@
-"""Subprocess integration tests for pyexewrap.
+"""Subprocess integration tests for pydblclick.
 
-These tests invoke pyexewrap as a real subprocess (python -m pyexewrap script.py),
+These tests invoke pydblclick as a real subprocess (python -m pydblclick script.py),
 testing the full invocation chain: entry point, double-click detection, output,
 pause prompt, and error handling.
 
-Unlike test_pyexewrap.py (which calls run_script() directly in-process), these
+Unlike test_pydblclick.py (which calls run_script() directly in-process), these
 tests catch issues in __main__.py's entry point, argument parsing, and process
 setup that in-process tests cannot detect.
 
-Double-click is simulated via the pyexewrap_simulate_doubleclick env var.
+Double-click is simulated via the pydblclick_simulate_doubleclick env var.
 The pause prompt is dismissed by sending '\\n' to stdin.
 """
 import os
@@ -18,16 +18,16 @@ import pytest
 
 
 def _run(script_path, stdin_input="\n", extra_env=None):
-    """Invoke pyexewrap as a subprocess simulating a double-click.
+    """Invoke pydblclick as a subprocess simulating a double-click.
 
     Returns (stdout, stderr, returncode).
     """
-    env = {**os.environ, "pyexewrap_simulate_doubleclick": "1"}
+    env = {**os.environ, "pydblclick_simulate_doubleclick": "1"}
     env.pop("PROMPT", None)
     if extra_env:
         env.update(extra_env)
     result = subprocess.run(
-        [sys.executable, "-m", "pyexewrap", str(script_path)],
+        [sys.executable, "-m", "pydblclick", str(script_path)],
         input=stdin_input,
         capture_output=True,
         text=True,
@@ -58,7 +58,7 @@ def test_subprocess_no_pause_in_cli_mode(tmp_path):
     script.write_text('print("hello world")', encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, "-m", "pyexewrap", str(script)],
+        [sys.executable, "-m", "pydblclick", str(script)],
         capture_output=True,
         text=True,
         env={**os.environ, "PROMPT": ">"},
@@ -85,8 +85,8 @@ def test_subprocess_exception_shows_traceback(tmp_path):
     assert "Press <Enter>" in out
 
 
-def test_subprocess_no_pyexewrap_frame_in_traceback(tmp_path):
-    """The traceback does not include pyexewrap's internal exec() frame."""
+def test_subprocess_no_pydblclick_frame_in_traceback(tmp_path):
+    """The traceback does not include pydblclick's internal exec() frame."""
     script = tmp_path / "boom.py"
     script.write_text("raise RuntimeError('clean traceback')", encoding="utf-8")
 
@@ -104,7 +104,7 @@ def test_subprocess_must_pause_false_suppresses_prompt(tmp_path):
     """Setting must_pause_in_console=False suppresses the pause prompt."""
     script = tmp_path / "no_pause.py"
     script.write_text(
-        "pyexewrap_customizations['must_pause_in_console'] = False\n"
+        "pydblclick_customizations['must_pause_in_console'] = False\n"
         'print("done")\n',
         encoding="utf-8",
     )
@@ -120,7 +120,7 @@ def test_subprocess_exception_forces_pause_despite_customization(tmp_path):
     """An uncaught exception overrides must_pause_in_console=False."""
     script = tmp_path / "forced.py"
     script.write_text(
-        "pyexewrap_customizations['must_pause_in_console'] = False\n"
+        "pydblclick_customizations['must_pause_in_console'] = False\n"
         "raise RuntimeError('forced pause')\n",
         encoding="utf-8",
     )
@@ -185,7 +185,7 @@ def test_subprocess_no_fallback_pause_in_cli_mode(tmp_path):
     script.write_text("import os\nos._exit(7)\n", encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, "-m", "pyexewrap", str(script)],
+        [sys.executable, "-m", "pydblclick", str(script)],
         capture_output=True,
         text=True,
         env={**os.environ, "PROMPT": ">"},
@@ -200,12 +200,12 @@ def test_subprocess_no_fallback_pause_in_cli_mode(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_subprocess_exit_code_propagated_in_cli_mode(tmp_path):
-    """sys.exit(3) in the script surfaces as pyexewrap's own exit code."""
+    """sys.exit(3) in the script surfaces as pydblclick's own exit code."""
     script = tmp_path / "exit3.py"
     script.write_text("import sys\nsys.exit(3)\n", encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, "-m", "pyexewrap", str(script)],
+        [sys.executable, "-m", "pydblclick", str(script)],
         capture_output=True,
         text=True,
         env={**os.environ, "PROMPT": ">"},
@@ -220,7 +220,7 @@ def test_subprocess_script_args_forwarded(tmp_path):
     script.write_text("import sys\nprint('|'.join(sys.argv[1:]))\n", encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, "-m", "pyexewrap", str(script), "alpha", "beta gamma"],
+        [sys.executable, "-m", "pydblclick", str(script), "alpha", "beta gamma"],
         capture_output=True,
         text=True,
         env={**os.environ, "PROMPT": ">"},
@@ -230,13 +230,13 @@ def test_subprocess_script_args_forwarded(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Opt-out directive — pyexewrap steps aside
+# Opt-out directive — pydblclick steps aside
 # ---------------------------------------------------------------------------
 
 def test_subprocess_opt_out_no_pause(tmp_path):
-    """A '# pyexewrap: off' script runs unwrapped: no pause even on double-click."""
+    """A '# pydblclick: off' script runs unwrapped: no pause even on double-click."""
     script = tmp_path / "opted_out.py"
-    script.write_text('# pyexewrap: off\nprint("plain run")\n', encoding="utf-8")
+    script.write_text('# pydblclick: off\nprint("plain run")\n', encoding="utf-8")
 
     out, _, code = _run(script)
 
@@ -248,7 +248,7 @@ def test_subprocess_opt_out_no_pause(tmp_path):
 def test_subprocess_opt_out_propagates_exit_code(tmp_path):
     """Opt-out keeps plain-Python behavior including the exit code."""
     script = tmp_path / "opted_out_exit.py"
-    script.write_text("# pyexewrap: off\nimport sys\nsys.exit(5)\n", encoding="utf-8")
+    script.write_text("# pydblclick: off\nimport sys\nsys.exit(5)\n", encoding="utf-8")
 
     _, _, code = _run(script)
 
@@ -260,11 +260,11 @@ def test_subprocess_opt_out_propagates_exit_code(tmp_path):
 # ---------------------------------------------------------------------------
 
 def _run_detached(script_path, timeout=None):
-    """Invoke pyexewrap with no console at all, like a pythonw.exe launch."""
-    env = {**os.environ, "pyexewrap_simulate_doubleclick": "1"}
+    """Invoke pydblclick with no console at all, like a pythonw.exe launch."""
+    env = {**os.environ, "pydblclick_simulate_doubleclick": "1"}
     env.pop("PROMPT", None)
     return subprocess.run(
-        [sys.executable, "-m", "pyexewrap", str(script_path)],
+        [sys.executable, "-m", "pydblclick", str(script_path)],
         capture_output=True,
         text=True,
         env=env,
@@ -298,20 +298,20 @@ def test_pyw_windowless_exception_waits_at_menu(tmp_path):
     """A crashing windowless .pyw creates a console and blocks at the pause menu.
 
     This test pops a real console window on the desktop and is therefore gated
-    behind the PYEXEWRAP_UI_TESTS env var (run it manually when touching the
+    behind the PYDBLCLICK_UI_TESTS env var (run it manually when touching the
     .pyw flow). The TimeoutExpired proves the child is alive, waiting at the
     menu on its freshly created console.
     """
-    if not os.environ.get("PYEXEWRAP_UI_TESTS"):
-        pytest.skip("UI test (pops a console window); set PYEXEWRAP_UI_TESTS=1 to run")
+    if not os.environ.get("PYDBLCLICK_UI_TESTS"):
+        pytest.skip("UI test (pops a console window); set PYDBLCLICK_UI_TESTS=1 to run")
 
     script = tmp_path / "crash.pyw"
     script.write_text('print("before crash")\nraise ValueError("pyw crash")\n', encoding="utf-8")
 
-    env = {**os.environ, "pyexewrap_simulate_doubleclick": "1"}
+    env = {**os.environ, "pydblclick_simulate_doubleclick": "1"}
     env.pop("PROMPT", None)
     proc = subprocess.Popen(
-        [sys.executable, "-m", "pyexewrap", str(script)],
+        [sys.executable, "-m", "pydblclick", str(script)],
         env=env,
         creationflags=subprocess.DETACHED_PROCESS,
     )
@@ -340,7 +340,7 @@ PEP723_SCRIPT = (
 
 def _uv_available():
     import shutil
-    return os.environ.get("PYEXEWRAP_UV") or shutil.which("uv")
+    return os.environ.get("PYDBLCLICK_UV") or shutil.which("uv")
 
 
 def test_subprocess_pep723_without_uv_falls_back(tmp_path):
@@ -362,7 +362,7 @@ def test_subprocess_pep723_without_uv_falls_back(tmp_path):
 def test_subprocess_pep723_runs_through_uv(tmp_path):
     """With uv available, a PEP 723 script runs in an ephemeral env, UX preserved."""
     if not _uv_available():
-        pytest.skip("uv not available (install uv or set PYEXEWRAP_UV)")
+        pytest.skip("uv not available (install uv or set PYDBLCLICK_UV)")
 
     script = tmp_path / "with_deps.py"
     script.write_text(PEP723_SCRIPT, encoding="utf-8")
@@ -370,5 +370,5 @@ def test_subprocess_pep723_runs_through_uv(tmp_path):
     out, _, code = _run(script)
 
     assert "ran with" in out
-    assert "Press <Enter>" in out  # pyexewrap UX preserved inside the uv env
+    assert "Press <Enter>" in out  # pydblclick UX preserved inside the uv env
     assert code == 0

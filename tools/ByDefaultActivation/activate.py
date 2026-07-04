@@ -1,18 +1,18 @@
 #!/usr/bin/env python
-"""Enable pyexewrap as the default handler for .py and .pyw double-clicks.
+"""Enable pydblclick as the default handler for .py and .pyw double-clicks.
 
 Automatically detects the Python installation type and applies the right configuration:
 
   - MSIX Python Manager (Microsoft Store / Python Install Manager):
-      Registers the pyexewrap.PyFile ProgID (so pyexewrap appears as a choice),
+      Registers the pydblclick.PyFile ProgID (so pydblclick appears as a choice),
       then prompts you to set it as the default via Windows Settings.
       This manual step is required because the MSIX App Model bypasses all
       registry ftype changes -- only UserChoice (set via the UI) takes effect.
 
   - Classic Python (no MSIX, python-x.x.x-amd64.exe installer):
-      Registers the pyexewrap.PyFile ProgID and updates the HKLM ftype registry
+      Registers the pydblclick.PyFile ProgID and updates the HKLM ftype registry
       (requires admin -- a UAC prompt will appear automatically).
-      pyexewrap becomes the default immediately, no UI interaction needed.
+      pydblclick becomes the default immediately, no UI interaction needed.
 
 Backs up the current registry state before any change.
 """
@@ -32,16 +32,16 @@ from winpyfiles._registry import HKCU, write_value, notify_shell_assoc_changed
 from winpyfiles._elevation import is_admin, elevate_and_rerun
 from winpyfiles._backup import backup
 
-PROG_ID = "pyexewrap.PyFile"
-APP_KEY = "pyexewrap"
-APP_DISPLAY_NAME = "pyexewrap"
+PROG_ID = "pydblclick.PyFile"
+APP_KEY = "pydblclick"
+APP_DISPLAY_NAME = "pydblclick"
 APP_DESCRIPTION = "Python script launcher with automatic virtual environment activation"
 EXTENSIONS = (".py", ".pyw")
 
 
 def _register(py_exe):
-    """Create the pyexewrap.PyFile ProgID and related registry entries."""
-    command = f'"{py_exe}" -m pyexewrap "%1" %*'
+    """Create the pydblclick.PyFile ProgID and related registry entries."""
+    command = f'"{py_exe}" -m pydblclick "%1" %*'
     icon = f'"{py_exe}",0'
 
     write_value(HKCU, f"Software\\Classes\\{PROG_ID}", APP_DISPLAY_NAME)
@@ -77,7 +77,7 @@ def _register(py_exe):
             winreg.SetValueEx(k, PROG_ID, 0, winreg.REG_NONE, b"")
 
     notify_shell_assoc_changed()
-    print(f"  [OK] pyexewrap.PyFile ProgID registered (command: {command})")
+    print(f"  [OK] pydblclick.PyFile ProgID registered (command: {command})")
 
 
 def main():
@@ -105,14 +105,14 @@ def main():
             print(f"[OK] ByDefaultActivation already active for {exts} (UserChoice set).")
         else:
             print("[i] MSIX Python Manager detected.")
-            print("    Step 1 is done: pyexewrap.PyFile ProgID is registered.")
+            print("    Step 1 is done: pydblclick.PyFile ProgID is registered.")
             print()
-            print("    Step 2 (manual): set pyexewrap as the default via Windows.")
+            print("    Step 2 (manual): set pydblclick as the default via Windows.")
             print("      Right-click a .py file > Ouvrir avec > Choisir une autre application")
-            print("      > pyexewrap > Toujours utiliser cette application")
+            print("      > pydblclick > Toujours utiliser cette application")
             print()
             print("    Or: Parametres > Applications > Applications par defaut > .py")
-            print("        and select pyexewrap.")
+            print("        and select pydblclick.")
     else:
         # Classic: update HKLM ftype (requires admin, auto-elevate).
         if not is_admin():
@@ -120,7 +120,7 @@ def main():
             elevate_and_rerun()
             return
 
-        command = f'"{py_exe}" -m pyexewrap "%1" %*'
+        command = f'"{py_exe}" -m pydblclick "%1" %*'
         d = diagnose()
         prog_ids_done = set()
         print("\n  Updating HKLM ftype:")

@@ -1,6 +1,6 @@
 """
 Adds the root of this repository to the system-wide PYTHONPATH environment variable,
-and drops a pyexewrap.pth file in the system Python's site-packages directory.
+and drops a pydblclick.pth file in the system Python's site-packages directory.
 
 Usage: double-click this file, or run it from any terminal:
     python add_to_pythonpath.py
@@ -12,17 +12,17 @@ Why two mechanisms?
        Broadcasts WM_SETTINGCHANGE so the change takes effect in new terminals
        without requiring a reboot.
 
-  2. pyexewrap.pth in site-packages:
+  2. pydblclick.pth in site-packages:
        Processed by Python's `site` module at interpreter startup, before any
        environment variable is read. This is the only mechanism that works when
        Python is launched by the MSIX App Model (e.g. double-click via the
        PythonSoftwareFoundation.PythonManager Store package), which activates
        processes in an isolated environment that does NOT inherit PYTHONPATH.
-       Without this file, the shebang approach (#!/usr/bin/env python -m pyexewrap)
+       Without this file, the shebang approach (#!/usr/bin/env python -m pydblclick)
        fails silently under MSIX double-click even though it works in a terminal.
 
 Note: why not `pip install -e .` ?
-    pyexewrap is invoked by py.exe via a shebang line. py.exe uses the system Python,
+    pydblclick is invoked by py.exe via a shebang line. py.exe uses the system Python,
     not a virtual environment. An editable install inside a venv would therefore not
     be visible to py.exe when launching scripts from the file explorer.
 """
@@ -88,10 +88,10 @@ def add_to_pythonpath(path: str) -> bool:
 
 
 def add_pth_file(repo_root: str) -> bool:
-    """Drop a pyexewrap.pth file in the system Python's site-packages.
+    """Drop a pydblclick.pth file in the system Python's site-packages.
 
     .pth files are processed by Python's site module at interpreter startup,
-    before any environment variable lookup. This makes pyexewrap importable
+    before any environment variable lookup. This makes pydblclick importable
     even when PYTHONPATH is not inherited (e.g. MSIX App Model activation).
 
     Returns True if a change was made, False if already configured.
@@ -109,7 +109,7 @@ def add_pth_file(repo_root: str) -> bool:
         return False
 
     site_packages = Path(result.stdout.strip())
-    pth_file = site_packages / "pyexewrap.pth"
+    pth_file = site_packages / "pydblclick.pth"
 
     if pth_file.exists() and pth_file.read_text(encoding="utf-8").strip() == repo_root.strip():
         return False
@@ -127,5 +127,5 @@ if __name__ == "__main__":
     if not pythonpath_done and not pth_done:
         print("Already configured. Nothing to do.")
     else:
-        print("pyexewrap is now findable in all Python execution contexts (including MSIX).")
+        print("pydblclick is now findable in all Python execution contexts (including MSIX).")
     input("Press a key...")

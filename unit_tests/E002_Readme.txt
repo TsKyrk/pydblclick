@@ -1,5 +1,5 @@
 Initial bug:
-when pyexewrap is used and an exception occurs in exec("source") the traceback is in an altered form compared with a normal execution of the source with python.exe
+when pydblclick is used and an exception occurs in exec("source") the traceback is in an altered form compared with a normal execution of the source with python.exe
 This altered form is less convenient to debug the script.
 
 Solution:

@@ -1,8 +1,8 @@
-"""pyexewrap — parent supervisor process.
+"""pydblclick — parent supervisor process.
 
-Entry point: python -m pyexewrap <script.py> [args...]
+Entry point: python -m pydblclick <script.py> [args...]
 
-The actual script execution happens in a child process (pyexewrap/_child.py)
+The actual script execution happens in a child process (pydblclick/_child.py)
 launched with the same interpreter. The child runs the script with plain-Python
 semantics, shows tracebacks and displays the pause prompt/menu itself.
 
@@ -13,11 +13,11 @@ away, even when the child cannot pause by itself:
 - the script was Ctrl+C'd to death.
 
 Child -> parent protocol: the child writes "handled" to the file pointed to
-by the PYEXEWRAP_STATUS_FILE env var once it has fulfilled its pause-or-no-pause
+by the PYDBLCLICK_STATUS_FILE env var once it has fulfilled its pause-or-no-pause
 duty. If the marker is missing after the child exits, the parent pauses.
 
-Before launching, the parent inspects the script's source (pyexewrap/_script_meta.py):
-- `# pyexewrap: off` -> run with plain Python, no wrapping at all;
+Before launching, the parent inspects the script's source (pydblclick/_script_meta.py):
+- `# pydblclick: off` -> run with plain Python, no wrapping at all;
 - PEP 723 `# /// script` block -> run the child through `uv run` so the
   declared dependencies are resolved in an ephemeral environment.
 """
@@ -28,8 +28,8 @@ import subprocess
 import sys
 import tempfile
 
-from pyexewrap import _script_meta
-from pyexewrap._child import STATUS_HANDLED, User32, ensure_console, have_console
+from pydblclick import _script_meta
+from pydblclick._child import STATUS_HANDLED, User32, ensure_console, have_console
 
 UV_INSTALL_URL = "https://docs.astral.sh/uv/getting-started/installation/"
 
@@ -54,7 +54,9 @@ def _console_python():
 
 
 def _script_is_doubleclicked():
-    return ('PROMPT' not in os.environ) or ('pyexewrap_simulate_doubleclick' in os.environ)
+    return (('PROMPT' not in os.environ)
+            or ('pydblclick_simulate_doubleclick' in os.environ)
+            or ('pyexewrap_simulate_doubleclick' in os.environ))  # legacy name
 
 
 def _read_status(status_file):
@@ -70,13 +72,13 @@ def _fallback_pause(returncode):
     if sys.stdout is None or sys.stdin is None:
         # Windowless parent (pythonw.exe): no usable stdio at all -- create a
         # console on the spot so the failure is visible.
-        if not ensure_console(title="pyexewrap"):
+        if not ensure_console(title="pydblclick"):
             return
     elif have_console():
         # The console may still be hidden if a .pyw script crashed hard
         User32.show_window(User32.Const.SW_SHOWDEFAULT)
     if returncode != 0:
-        print("\nThe script ended (exit code " + str(returncode) + ") without pyexewrap being able to pause.")
+        print("\nThe script ended (exit code " + str(returncode) + ") without pydblclick being able to pause.")
     try:
         input("Press <Enter> to Quit.\n")
     except (EOFError, ValueError, KeyboardInterrupt):
@@ -93,13 +95,13 @@ def _plain_python_for(script):
 
 
 def _find_uv():
-    """Locate the uv executable (PYEXEWRAP_UV overrides PATH, for tests)."""
-    return os.environ.get("PYEXEWRAP_UV") or shutil.which("uv")
+    """Locate the uv executable (PYDBLCLICK_UV overrides PATH, for tests)."""
+    return os.environ.get("PYDBLCLICK_UV") or shutil.which("uv")
 
 
 def _build_child_command(script, script_args, env):
     """Build the child command line, delegating to `uv run` for PEP 723 scripts."""
-    default_cmd = [_console_python(), "-m", "pyexewrap._child", script] + script_args
+    default_cmd = [_console_python(), "-m", "pydblclick._child", script] + script_args
 
     meta = _script_meta.parse_pep723(_script_meta.read_script_text(script))
     if meta is None:
@@ -107,7 +109,7 @@ def _build_child_command(script, script_args, env):
 
     uv = _find_uv()
     if not uv:
-        print("[pyexewrap] This script declares PEP 723 dependencies, but 'uv' was not found on PATH.")
+        print("[pydblclick] This script declares PEP 723 dependencies, but 'uv' was not found on PATH.")
         print("            Install uv to run it with its dependencies resolved automatically:")
         print("            " + UV_INSTALL_URL)
         print("            Running with plain Python instead...\n")
@@ -118,9 +120,9 @@ def _build_child_command(script, script_args, env):
         cmd += ["--python", meta["requires-python"]]
     for dep in meta["dependencies"]:
         cmd += ["--with", dep]
-    cmd += ["python", "-m", "pyexewrap._child", script] + script_args
+    cmd += ["python", "-m", "pydblclick._child", script] + script_args
 
-    # pyexewrap itself must be importable inside uv's ephemeral environment
+    # pydblclick itself must be importable inside uv's ephemeral environment
     package_parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     existing = env.get("PYTHONPATH")
     env["PYTHONPATH"] = package_parent + (os.pathsep + existing if existing else "")
@@ -129,16 +131,16 @@ def _build_child_command(script, script_args, env):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: pyexewrap <script.py> [args...]")
-        print("       pyexewrap register    (set pyexewrap as the .py/.pyw double-click handler)")
-        print("       pyexewrap unregister  (restore plain Python on double-click)")
-        print("       pyexewrap diagnose    (inspect the Windows file association chain)")
+        print("Usage: pydblclick <script.py> [args...]")
+        print("       pydblclick register    (set pydblclick as the .py/.pyw double-click handler)")
+        print("       pydblclick unregister  (restore plain Python on double-click)")
+        print("       pydblclick diagnose    (inspect the Windows file association chain)")
         return 2
 
     # Management subcommands (a real script file named e.g. 'register' still wins)
-    from pyexewrap._cli import COMMANDS
+    from pydblclick._cli import COMMANDS
     if sys.argv[1] in COMMANDS and not os.path.exists(sys.argv[1]):
-        from pyexewrap import _cli
+        from pydblclick import _cli
         return _cli.main(sys.argv[1:])
 
     script, script_args = sys.argv[1], sys.argv[2:]
@@ -150,10 +152,10 @@ def main():
 
     # The status file is how the child tells us "I already paused (or decided
     # a pause was not needed)". It survives any way the child may die.
-    fd, status_file = tempfile.mkstemp(prefix="pyexewrap_status_")
+    fd, status_file = tempfile.mkstemp(prefix="pydblclick_status_")
     os.close(fd)
     env = dict(os.environ)
-    env["PYEXEWRAP_STATUS_FILE"] = status_file
+    env["PYDBLCLICK_STATUS_FILE"] = status_file
 
     cmd = _build_child_command(script, script_args, env)
 
@@ -166,9 +168,9 @@ def main():
     log_file = None
     log_handle = None
     if windowless:
-        fd, log_file = tempfile.mkstemp(prefix="pyexewrap_pyw_", suffix=".log")
+        fd, log_file = tempfile.mkstemp(prefix="pydblclick_pyw_", suffix=".log")
         log_handle = os.fdopen(fd, "w", encoding="utf-8", errors="replace")
-        env["PYEXEWRAP_PYW_LOG"] = log_file
+        env["PYDBLCLICK_PYW_LOG"] = log_file
         run_kwargs = {
             "stdin": subprocess.DEVNULL,
             "stdout": log_handle,

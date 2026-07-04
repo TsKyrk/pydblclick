@@ -11,7 +11,7 @@ script_name = sys.argv[1]
 arguments = sys.argv[2:]
 
 try:
-    subprocess.run(['py', '-m', 'pyexewrap', script_name] + arguments, check=True)
+    subprocess.run(['py', '-m', 'pydblclick', script_name] + arguments, check=True)
 except subprocess.CalledProcessError as e:
     print(f"Command failed with error: {e}")
 except FileNotFoundError:

@@ -1,12 +1,12 @@
-"""System-level environment checks for pyexewrap double-click invocation.
+"""System-level environment checks for pydblclick double-click invocation.
 
-Unlike the unit tests in test_pyexewrap.py (which call run_script() directly
+Unlike the unit tests in test_pydblclick.py (which call run_script() directly
 and always pass regardless of Windows file associations), these tests verify
 that the *Windows environment* is correctly configured to actually invoke
-pyexewrap when a .py file is double-clicked.
+pydblclick when a .py file is double-clicked.
 
 These tests can fail due to external system state (MSIX packages, missing
-file associations) rather than code bugs. A failure here means pyexewrap
+file associations) rather than code bugs. A failure here means pydblclick
 will not be invoked on double-click, even if the unit tests pass.
 
 MSIX Python Manager compatibility:
@@ -28,8 +28,8 @@ _winpyfiles = pytest.mark.skipif(
 
 
 @_winpyfiles
-def test_py_ftype_command_references_pyexewrap():
-    """The Windows ftype command for .py/.pyw files must reference pyexewrap.
+def test_py_ftype_command_references_pydblclick():
+    """The Windows ftype command for .py/.pyw files must reference pydblclick.
 
     This test is automatically skipped when the MSIX Python Manager is
     detected (since in that case the ftype command is bypassed anyway --
@@ -51,8 +51,8 @@ def test_py_ftype_command_references_pyexewrap():
             )
         info = d.prog_ids.get(pid)
         cmd = info.command_effective if info else None
-        assert cmd and "pyexewrap" in cmd.lower(), (
-            f"{ext_info.extension}: pyexewrap not found in the ftype command.\n"
+        assert cmd and "pydblclick" in cmd.lower(), (
+            f"{ext_info.extension}: pydblclick not found in the ftype command.\n"
             f"  ProgID  : {pid}\n"
             f"  Command : {cmd!r}\n\n"
             f"Run 'py -m winpyfiles diagnose' for full details, then\n"

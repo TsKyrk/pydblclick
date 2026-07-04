@@ -1,6 +1,9 @@
-# What is pyexewrap ?
+# What is pydblclick ?
 
-pyexewrap makes Python scripts pleasant to run **by double-click** on Windows — for you,
+*(formerly known as **pyexewrap** — renamed before the first PyPI release, since the old
+name referenced the deprecated `py.exe` launcher and suggested exe-building tools)*
+
+pydblclick makes Python scripts pleasant to run **by double-click** on Windows — for you,
 your colleagues, or anyone you share a one-file script with:
 
 - The console window **never flashes away**: a pause prompt appears at the end of the
@@ -17,7 +20,7 @@ your colleagues, or anyone you share a one-file script with:
   `pythonw.exe`) — but if they crash, a console is created on the spot showing the
   script's output and the traceback, instead of dying silently.
 - When a script is run from a console, called by another script or a batch file,
-  pyexewrap stays out of the way: no pause, exit codes and arguments faithfully
+  pydblclick stays out of the way: no pause, exit codes and arguments faithfully
   propagated.
 
 ## Python's native problems for Windows users
@@ -35,10 +38,10 @@ your colleagues, or anyone you share a one-file script with:
 
 ```commandline
 pip install <path-to-this-repo>       (PyPI package coming soon)
-pyexewrap register
+pydblclick register
 ```
 
-`pyexewrap register` sets pyexewrap as the default handler for `.py`/`.pyw` double-clicks
+`pydblclick register` sets pydblclick as the default handler for `.py`/`.pyw` double-clicks
 using the standard Windows mechanism (ProgID + UserChoice). This works on **all** Python
 installations — classic installer *and* MSIX Python Manager (see
 [MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md)). A backup of the previous file
@@ -47,13 +50,13 @@ associations is saved automatically before any change.
 To undo everything:
 
 ```commandline
-pyexewrap unregister
+pydblclick unregister
 ```
 
 To inspect the Windows file association chain (and detect MSIX interference):
 
 ```commandline
-pyexewrap diagnose
+pydblclick diagnose
 ```
 
 For automatic dependency resolution (PEP 723 scripts), also install
@@ -80,18 +83,18 @@ import requests
 ...
 ```
 
-On a machine with pyexewrap + uv, double-clicking this file "just works": uv resolves
-the dependencies in an ephemeral environment, and pyexewrap keeps the window open with
+On a machine with pydblclick + uv, double-clicking this file "just works": uv resolves
+the dependencies in an ephemeral environment, and pydblclick keeps the window open with
 its usual menu. This is a standard format — the same file also runs with `uv run` alone
 on any platform. Use `uv add --script myscript.py requests` to maintain the block.
 
 ## Opting a script out
 
-Add this comment anywhere in a script to make pyexewrap step aside (plain Python
+Add this comment anywhere in a script to make pydblclick step aside (plain Python
 behavior, no pause):
 
 ```python
-# pyexewrap: off
+# pydblclick: off
 ```
 
 ## Pause only on error
@@ -99,19 +102,19 @@ behavior, no pause):
 To make an individual script skip the final pause *unless an exception occurred*:
 
 ```python
-pyexewrap_customizations['must_pause_in_console'] = False
+pydblclick_customizations['must_pause_in_console'] = False
 ```
 
 ## Command line
 
-`pyexewrap <script.py> [args...]` (or `python -m pyexewrap <script.py> [args...]`) wraps
+`pydblclick <script.py> [args...]` (or `python -m pydblclick <script.py> [args...]`) wraps
 a script explicitly. In a console there is no pause; set the
-`pyexewrap_simulate_doubleclick` env var to force double-click behavior (useful in
+`pydblclick_simulate_doubleclick` env var to force double-click behavior (useful in
 batch files and tests).
 
 ## Custom icons
 
-Scripts launched via pyexewrap show the registered Python icon. For a custom icon,
+Scripts launched via pydblclick show the registered Python icon. For a custom icon,
 create a shortcut to the script and set the icon in its properties (see the example in
 [examples](examples/)).
 
@@ -119,9 +122,9 @@ create a shortcut to the script and set the icon in its properties (see the exam
 
 Two processes (see [CLAUDE.md](CLAUDE.md) architecture notes and [ROADMAP.md](ROADMAP.md)):
 
-- a thin **parent supervisor** (`python -m pyexewrap`) which guarantees the window
+- a thin **parent supervisor** (`python -m pydblclick`) which guarantees the window
   survives anything — even `os._exit()`, a native crash, or a script that closes stdin;
-- a **child engine** (`python -m pyexewrap._child`) which runs your script with exact
+- a **child engine** (`python -m pydblclick._child`) which runs your script with exact
   plain-Python semantics (`runpy`), shows clean tracebacks (no wrapper frames), and
   owns the pause menu. For PEP 723 scripts the child runs inside the uv-provisioned
   environment.
@@ -132,7 +135,7 @@ and `exit()`/`quit()` behave exactly as with plain Python.
 # Legacy: the shebang method (deprecated)
 
 Before the 2026 pivot, scripts were enhanced individually with a shebang line
-(`#!/usr/bin/env python -m pyexewrap`) read by the classic `py.exe` launcher, and
+(`#!/usr/bin/env python -m pydblclick`) read by the classic `py.exe` launcher, and
 installation went through `add_to_pythonpath.py`. This mechanism **still works on
 classic-installer systems** but is a dead end:
 
@@ -141,37 +144,37 @@ classic-installer systems** but is a dead end:
 - the MSIX Python Manager (Microsoft Store / "Python Install Manager" on python.org)
   never reads shebangs on double-click, and its shebang support
   [does not allow arguments](https://docs.python.org/3/using/windows.html) such as
-  `-m pyexewrap`.
+  `-m pydblclick`.
 
-Use `pyexewrap register` instead; per-script granularity is provided by the
-`# pyexewrap: off` directive. See [MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md) for the
+Use `pydblclick register` instead; per-script granularity is provided by the
+`# pydblclick: off` directive. See [MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md) for the
 full compatibility matrix and history.
 
 # Compatibility with the MSIX Python Manager (python/pymanager)
 
 The `PythonSoftwareFoundation.PythonManager` MSIX package intercepts `.py`/`.pyw`
 double-clicks through Windows App Model activation, bypassing shebangs and registry
-ftype settings. **`pyexewrap register` works with it**: the MSIX launcher honors
-UserChoice pointing to the `pyexewrap.PyFile` ProgID (confirmed by testing).
+ftype settings. **`pydblclick register` works with it**: the MSIX launcher honors
+UserChoice pointing to the `pydblclick.PyFile` ProgID (confirmed by testing).
 
-If double-clicks don't reach pyexewrap, run `pyexewrap diagnose` — it detects MSIX
+If double-clicks don't reach pydblclick, run `pydblclick diagnose` — it detects MSIX
 interference and tells you what to fix. Details in
 [MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md).
 
 # Note about py.exe
 
-`py.exe` was the Windows wrapper for multiple Python interpreters, making pyexewrap a
+`py.exe` was the Windows wrapper for multiple Python interpreters, making pydblclick a
 wrapper of a wrapper. Its pymanager successor confirms that launcher-level wrapping is
-not extensible — which is why pyexewrap now registers itself as the file handler, the
+not extensible — which is why pydblclick now registers itself as the file handler, the
 one mechanism every launcher must respect.
 
 # Todos
 
-- Publish to PyPI (`pip install pyexewrap`)
-- Standalone `pyexewrap.exe` handler (no Python required to bootstrap; uv can even
-  provision Python itself) — see `tools/pyexewrap_exe` for the current prototype
+- Publish to PyPI (`pip install pydblclick`)
+- Standalone `pydblclick.exe` handler (no Python required to bootstrap; uv can even
+  provision Python itself) — see `tools/pydblclick_exe` for the current prototype
 - Offer to install uv when a PEP 723 script is double-clicked and uv is missing
-- Context menu items "Run with pyexewrap" / "Bypass pyexewrap"
+- Context menu items "Run with pydblclick" / "Bypass pydblclick"
 
 # Contributions
 

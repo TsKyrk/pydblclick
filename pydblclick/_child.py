@@ -1,8 +1,8 @@
-"""Child-side execution engine of pyexewrap.
+"""Child-side execution engine of pydblclick.
 
-This module is launched by the parent supervisor (pyexewrap/__main__.py) as:
+This module is launched by the parent supervisor (pydblclick/__main__.py) as:
 
-    python -m pyexewrap._child <script.py> [args...]
+    python -m pydblclick._child <script.py> [args...]
 
 It runs the target script with plain-Python semantics (via runpy.run_path),
 shows the traceback on uncaught exceptions, and displays the pause prompt/menu.
@@ -13,7 +13,7 @@ If the pause prompt cannot be displayed (the script closed stdin with
 exit()/quit(), or the interpreter dies), the parent supervisor takes over
 and displays a fallback pause — so the console window never flashes away.
 
-Child -> parent protocol: the environment variable PYEXEWRAP_STATUS_FILE
+Child -> parent protocol: the environment variable PYDBLCLICK_STATUS_FILE
 points to a file where the child writes "handled" once it has fulfilled its
 pause-or-no-pause duty. If the marker is missing, the parent pauses itself.
 """
@@ -105,7 +105,7 @@ def reveal_console_for_pyw(log_file=None):
             stream.flush()
         except (OSError, ValueError, AttributeError):
             pass
-    if not ensure_console(title=os.path.basename(sys.argv[0]) + " -- pyexewrap"):
+    if not ensure_console(title=os.path.basename(sys.argv[0]) + " -- pydblclick"):
         return
     if log_file:
         try:
@@ -119,14 +119,14 @@ def reveal_console_for_pyw(log_file=None):
 
 def showtraceback(script_path):
     """
-    Displays the exception that just occurred, hiding the pyexewrap/runpy
+    Displays the exception that just occurred, hiding the pydblclick/runpy
     internal frames so the traceback starts at the user's script.
     """
     sys.last_type, sys.last_value, last_tb = ei = sys.exc_info()
     sys.last_traceback = last_tb
     try:
         # Walk down to the first frame that belongs to the user's script.
-        # Frames above it are pyexewrap's own code and runpy internals.
+        # Frames above it are pydblclick's own code and runpy internals.
         tb = last_tb
         while tb is not None and tb.tb_frame.f_code.co_filename != script_path:
             tb = tb.tb_next
@@ -200,12 +200,12 @@ def display_pause_prompt_and_menu():
         elif wait.lower() == "debug":
             # Secret menu item to help developping new features
             print("place any variable here to debug it: " + sys.executable)
-        elif wait.lower() == "pyexewrap":
+        elif wait.lower() == "pydblclick":
             # Secret feature to open the tool and start editing the source for new cool features
             os.system("explorer " + os.path.split(sys.argv[0])[0])
         elif wait.lower() == "":
             must_run_script_again = False
-            break  # exits while True to end pyexewrap
+            break  # exits while True to end pydblclick
         else:
             # The commands must be typed accurately. Must retry...
             wait = None
@@ -228,29 +228,31 @@ def _normalize_exit_code(system_exit):
 def run_script(script_to_execute):
     """Runs the target script and returns (pause_decision, exit_code)."""
     ################ BEHAVIOUR CUSTOMIZATION ######
-    pyexewrap_customizations = {}
-    pyexewrap_customizations['must_pause_in_console'] = True  # This can be changed dynamicaly by the enhanced scripts
-    pyexewrap_must_change_title = True
-    pyexewrap_verbose = False
-    # pyexewrap_verbose = True  # Uncomment to debug with verbose mode
+    pydblclick_customizations = {}
+    pydblclick_customizations['must_pause_in_console'] = True  # This can be changed dynamicaly by the enhanced scripts
+    pydblclick_must_change_title = True
+    pydblclick_verbose = False
+    # pydblclick_verbose = True  # Uncomment to debug with verbose mode
 
-    if pyexewrap_verbose: print("pyexewrap activated.")
+    if pydblclick_verbose: print("pydblclick activated.")
 
     script_extension = os.path.splitext(script_to_execute)[1]
-    script_is_doubleclicked = ('PROMPT' not in os.environ) or ('pyexewrap_simulate_doubleclick' in os.environ)
+    script_is_doubleclicked = (('PROMPT' not in os.environ)
+                               or ('pydblclick_simulate_doubleclick' in os.environ)
+                               or ('pyexewrap_simulate_doubleclick' in os.environ))  # legacy name
     # script_is_doubleclicked = True  # Uncomment this to simulate a double-clicked script even though you are using a console
 
     exit_code = 0
 
     if "pythonw" in sys.executable:
-        err_msg = "Error : pyexewrap should never be running with pythonw.exe !\n" + str(sys.executable) + "\n" + str(sys.argv)
+        err_msg = "Error : pydblclick should never be running with pythonw.exe !\n" + str(sys.executable) + "\n" + str(sys.argv)
         print(err_msg)
         with open("error.txt", "w", encoding="UTF-8") as f:
             f.write(err_msg)
 
     try:
         ################ INITIALIZATION ##############
-        if pyexewrap_verbose:
+        if pydblclick_verbose:
             print("interpreter is " + sys.executable)
             print("CLI is " + " ".join(sys.argv))
             print("script extension is " + script_extension)
@@ -263,8 +265,8 @@ def run_script(script_to_execute):
             User32.show_window(User32.Const.SW_HIDE)  # Use SW_SHOWMINIMIZED to debug
 
         # if not run in console (but through double-click) the window title will be explicit
-        if script_is_doubleclicked and pyexewrap_must_change_title and have_console():
-            os.system("title " + os.path.basename(script_to_execute) + " -- pyexewrap " + script_to_execute)
+        if script_is_doubleclicked and pydblclick_must_change_title and have_console():
+            os.system("title " + os.path.basename(script_to_execute) + " -- pydblclick " + script_to_execute)
 
         ################ EXECUTION ####################
         # runpy.run_path() executes the script with plain-Python semantics:
@@ -276,17 +278,19 @@ def run_script(script_to_execute):
             sys.path.insert(0, script_dir)
 
         # The customization dict is exposed through builtins so that scripts can
-        # write `pyexewrap_customizations['must_pause_in_console'] = False`
-        # without pyexewrap polluting their namespace.
+        # write `pydblclick_customizations['must_pause_in_console'] = False`
+        # without pydblclick polluting their namespace.
         import builtins
-        builtins.pyexewrap_customizations = pyexewrap_customizations
+        builtins.pydblclick_customizations = pydblclick_customizations
+        builtins.pyexewrap_customizations = pydblclick_customizations  # legacy alias
         try:
             global globalsParameter
             globalsParameter = runpy.run_path(script_to_execute, run_name="__main__")
         finally:
+            del builtins.pydblclick_customizations
             del builtins.pyexewrap_customizations
 
-        if pyexewrap_verbose: print("must_pause_in_console=" + str(pyexewrap_customizations['must_pause_in_console']))
+        if pydblclick_verbose: print("must_pause_in_console=" + str(pydblclick_customizations['must_pause_in_console']))
 
     except SystemExit as e:
         # exit()/quit()/sys.exit() in the script: not an error, but the exit
@@ -294,11 +298,11 @@ def run_script(script_to_execute):
         exit_code = _normalize_exit_code(e)
     except BaseException:
         exit_code = 1
-        pyexewrap_customizations['must_pause_in_console'] = True
+        pydblclick_customizations['must_pause_in_console'] = True
         if script_extension == ".pyw":
-            # From now on pyexewrap will consider the script as a .py file (with a pausing message to display)
+            # From now on pydblclick will consider the script as a .py file (with a pausing message to display)
             script_extension = ".py"
-            reveal_console_for_pyw(os.environ.get("PYEXEWRAP_PYW_LOG"))
+            reveal_console_for_pyw(os.environ.get("PYDBLCLICK_PYW_LOG"))
         # Expose the script's globals to the interactive console for post-mortem debugging
         tb = sys.exc_info()[2]
         while tb is not None:
@@ -309,11 +313,11 @@ def run_script(script_to_execute):
         showtraceback(script_to_execute)
         print("This exception has ended the script before the end.")
 
-    pause_decision = script_is_doubleclicked and pyexewrap_customizations['must_pause_in_console'] and script_extension != ".pyw"
-    if pyexewrap_verbose:
+    pause_decision = script_is_doubleclicked and pydblclick_customizations['must_pause_in_console'] and script_extension != ".pyw"
+    if pydblclick_verbose:
         print("pausing message ?")
         print("script_is_doubleclicked=" + str(script_is_doubleclicked))
-        print("must_pause_in_console=" + str(pyexewrap_customizations['must_pause_in_console']))
+        print("must_pause_in_console=" + str(pydblclick_customizations['must_pause_in_console']))
         print("script_extension=" + script_extension)
         print("pause_decision=" + str(pause_decision))
 
@@ -333,14 +337,14 @@ def _write_status(status_file, text):
 def main():
     # sys.version_info(major=3, minor=11, micro=3, releaselevel='final', serial=0)
     if sys.version_info.major < 3 or sys.version_info.minor < 10:
-        print("Warning: pyexewrap has not been tested with Python version 3.9 and below.")
+        print("Warning: pydblclick has not been tested with Python version 3.9 and below.")
         print("sys.version=" + sys.version)
 
     if len(sys.argv) < 2:
-        print("Usage: python -m pyexewrap <script.py> [args...]")
+        print("Usage: python -m pydblclick <script.py> [args...]")
         return 2
 
-    status_file = os.environ.pop("PYEXEWRAP_STATUS_FILE", None)
+    status_file = os.environ.pop("PYDBLCLICK_STATUS_FILE", None)
 
     script_to_execute = sys.argv[1]
     # The wrapped script must see the same sys.argv as if it was run directly

@@ -5,16 +5,24 @@
 The delivery mechanism moves from the deprecated `py.exe` shebang to standard
 Windows file-handler registration. See [ROADMAP.md](ROADMAP.md) for the full story.
 
+### Renamed
+- The project is renamed **pyexewrap → pydblclick**: the old name referenced
+  wrapping the (now deprecated) `py.exe` launcher and wrongly suggested
+  exe-building tools (py2exe/PyInstaller family). Legacy compatibility kept:
+  the `# pyexewrap: off` directive, the `pyexewrap_customizations` name and
+  the `pyexewrap_simulate_doubleclick` env var still work; `register`/
+  `unregister` clean up registry entries from the old name.
+
 ### Added
-- `pip install` support with a `pyexewrap` console entry point (the
+- `pip install` support with a `pydblclick` console entry point (the
   PYTHONPATH/`add_to_pythonpath.py` installation becomes legacy).
-- `pyexewrap register` / `unregister` / `diagnose` subcommands: standard
+- `pydblclick register` / `unregister` / `diagnose` subcommands: standard
   ProgID + UserChoice file-handler registration, working with **and without**
   the MSIX Python Manager. Automatic backup before any registry change.
 - PEP 723 support: scripts declaring inline dependencies (`# /// script`)
   are executed through `uv run` in an ephemeral environment, with the
-  pyexewrap pause/menu UX preserved. Clear fallback message when uv is absent.
-- `# pyexewrap: off` directive: per-script opt-out (plain Python behavior).
+  pydblclick pause/menu UX preserved. Clear fallback message when uv is absent.
+- `# pydblclick: off` directive: per-script opt-out (plain Python behavior).
 - Truly windowless `.pyw` execution: registered with `pythonw.exe`, no console
   at all; on exception a console is created on demand (AllocConsole), replaying
   the script's captured output before the traceback and pause menu.
@@ -38,5 +46,6 @@ Windows file-handler registration. See [ROADMAP.md](ROADMAP.md) for the full sto
 
 ## 0.1.0
 
-Initial shebang-based implementation (`#!/usr/bin/env python -m pyexewrap`
-read by the classic `py.exe` launcher, PYTHONPATH installation).
+Initial shebang-based implementation, under the original name *pyexewrap*
+(`#!/usr/bin/env python -m pyexewrap` read by the classic `py.exe` launcher,
+PYTHONPATH installation).

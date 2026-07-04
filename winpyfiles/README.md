@@ -115,9 +115,9 @@ Windows Settings > Apps > Installed apps.
 
 ## Installation
 
-winpyfiles is currently bundled with pyexewrap. Add the repo root to `PYTHONPATH` and it becomes
+winpyfiles is currently bundled with pydblclick. Add the repo root to `PYTHONPATH` and it becomes
 importable system-wide:
 
 ```
-python add_to_pythonpath.py  # from the pyexewrap repo root, admin rights required
+python add_to_pythonpath.py  # from the pydblclick repo root, admin rights required
 ```

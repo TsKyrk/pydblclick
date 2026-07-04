@@ -1,16 +1,16 @@
 #!/usr/bin/env python
-"""Disable pyexewrap as the default handler for .py and .pyw double-clicks.
+"""Disable pydblclick as the default handler for .py and .pyw double-clicks.
 
 Restores the default Python behavior on double-click. Automatically detects the
 Python installation type and undoes the corresponding configuration:
 
   - MSIX Python Manager (Microsoft Store / Python Install Manager):
-      Removes the pyexewrap.PyFile ProgID. If UserChoice was set to pyexewrap,
+      Removes the pydblclick.PyFile ProgID. If UserChoice was set to pydblclick,
       Windows will typically clear it automatically -- but if .py files still
-      open with pyexewrap afterwards, a one-time manual step is shown.
+      open with pydblclick afterwards, a one-time manual step is shown.
 
   - Classic Python (no MSIX, python-x.x.x-amd64.exe installer):
-      Removes the pyexewrap.PyFile ProgID and resets the HKLM ftype to the
+      Removes the pydblclick.PyFile ProgID and resets the HKLM ftype to the
       plain Python launcher (requires admin -- a UAC prompt will appear automatically).
 
 Backs up the current registry state before any change.
@@ -30,8 +30,8 @@ from winpyfiles._registry import HKCU, notify_shell_assoc_changed
 from winpyfiles._elevation import is_admin, elevate_and_rerun
 from winpyfiles._backup import backup
 
-PROG_ID = "pyexewrap.PyFile"
-APP_KEY = "pyexewrap"
+PROG_ID = "pydblclick.PyFile"
+APP_KEY = "pydblclick"
 EXTENSIONS = (".py", ".pyw")
 
 
@@ -60,7 +60,7 @@ def _delete_value(hive, key_path, value_name):
 
 
 def _unregister():
-    """Remove the pyexewrap.PyFile ProgID and all related registry entries."""
+    """Remove the pydblclick.PyFile ProgID and all related registry entries."""
     _delete_key_tree(HKCU, f"Software\\Classes\\{PROG_ID}")
     _delete_key_tree(HKCU, f"Software\\Classes\\Applications\\{APP_KEY}")
     _delete_value(HKCU, "Software\\RegisteredApplications", APP_KEY)
@@ -68,7 +68,7 @@ def _unregister():
     for ext in EXTENSIONS:
         _delete_value(HKCU, f"Software\\Classes\\{ext}\\OpenWithProgids", PROG_ID)
     notify_shell_assoc_changed()
-    print("  [OK] pyexewrap.PyFile ProgID removed.")
+    print("  [OK] pydblclick.PyFile ProgID removed.")
 
 
 def main():
@@ -88,13 +88,13 @@ def main():
         print()
         if had_user_choice:
             exts = " and ".join(e.extension for e in had_user_choice)
-            print(f"[i] UserChoice for {exts} was set to pyexewrap.PyFile.")
+            print(f"[i] UserChoice for {exts} was set to pydblclick.PyFile.")
             print("    Windows may clear it automatically now that the ProgID is gone.")
-            print("    If .py files still open with pyexewrap, clear it manually:")
+            print("    If .py files still open with pydblclick, clear it manually:")
             print("      Parametres > Applications > Applications par defaut > .py")
             print("      and select a different application (e.g. Python).")
         else:
-            print("[OK] pyexewrap was not set as UserChoice -- no manual steps needed.")
+            print("[OK] pydblclick was not set as UserChoice -- no manual steps needed.")
     else:
         # Classic: reset HKLM ftype to plain Python launcher (requires admin).
         if not is_admin():

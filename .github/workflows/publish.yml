@@ -2,7 +2,7 @@ name: publish
 
 # Publishes to PyPI via trusted publishing (no API token needed).
 # One-time setup on https://pypi.org/manage/account/publishing/ :
-#   project name: pyexewrap, owner: TsKyrk, repository: pyexewrap,
+#   project name: pydblclick, owner: TsKyrk, repository: pydblclick,
 #   workflow: publish.yml, environment: pypi
 # Then: git tag v0.2.0 && git push --tags
 

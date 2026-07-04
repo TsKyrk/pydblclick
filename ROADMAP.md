@@ -1,8 +1,8 @@
-# pyexewrap — Roadmap (2026 pivot)
+# pydblclick — Roadmap (2026 pivot)
 
 ## Why this pivot
 
-The original delivery mechanism — a shebang line `#!/usr/bin/env python -m pyexewrap`
+The original delivery mechanism — a shebang line `#!/usr/bin/env python -m pydblclick`
 read by the classic `py.exe` launcher — is dying:
 
 - The classic `py.exe` launcher is **deprecated since Python 3.14** and will not be
@@ -10,11 +10,11 @@ read by the classic `py.exe` launcher — is dying:
 - The **MSIX Python Manager** (pymanager), now the default way to install Python on
   Windows, intercepts `.py`/`.pyw` double-clicks via App Model activation, never reads
   the shebang for module invocation, and its shebang support **does not allow arguments**
-  such as `-m pyexewrap` (custom `shebang_templates` only accept `py`, `py -3.x`,
+  such as `-m pydblclick` (custom `shebang_templates` only accept `py`, `py -3.x`,
   `py -V:<tag>`).
 
 What survives — confirmed by testing (see [MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md)):
-the **ProgID + UserChoice** registration (`pyexewrap.PyFile`), i.e. the standard way any
+the **ProgID + UserChoice** registration (`pydblclick.PyFile`), i.e. the standard way any
 Windows application registers itself as a file handler. It works with and without MSIX.
 
 The pivot therefore recomposes the project around three ideas:
@@ -31,7 +31,7 @@ The pivot therefore recomposes the project around three ideas:
    detects the `# /// script` metadata block and delegates execution to `uv run`.
 
 Dropping the shebang also **frees the installation story**: the registered handler command
-can point to anything, so `pip install pyexewrap` / a standalone `pyexewrap.exe` become
+can point to anything, so `pip install pydblclick` / a standalone `pydblclick.exe` become
 possible (the PYTHONPATH hack existed only because the shebang went through the system
 Python).
 
@@ -43,7 +43,7 @@ Python).
 - [x] Write this roadmap
 
 ### Phase 1 — Core: subprocess execution model
-- [x] Refactor to a two-process model: child engine (`pyexewrap._child`, runs the
+- [x] Refactor to a two-process model: child engine (`pydblclick._child`, runs the
       script via `runpy` and owns the pause menu) + parent supervisor (fallback
       pause when the child cannot pause: closed stdin, hard crash)
 - [x] Post-mortem REPL (`<i>` menu option) with the script's real globals
@@ -56,12 +56,12 @@ Python).
 - [x] Adapt `tests/` (pytest) and `unit_tests/` (manual UX scenarios) to the new model
 
 ### Phase 2 — Modern installation
-- [x] Make the package pip-installable: `pyproject.toml` with a `pyexewrap` console
+- [x] Make the package pip-installable: `pyproject.toml` with a `pydblclick` console
       entry point (the PYTHONPATH/`add_to_pythonpath.py` approach becomes legacy)
-- [x] `pyexewrap register` / `pyexewrap unregister` CLI commands — merge
+- [x] `pydblclick register` / `pydblclick unregister` CLI commands — merge
       `tools/ByDefaultActivation/activate.py`/`disable.py` and winpyfiles into the
       main CLI (ProgID + UserChoice flow, automatic backup)
-- [ ] Build a small standalone handler exe (modernize `tools/pyexewrap_exe`) so the
+- [ ] Build a small standalone handler exe (modernize `tools/pydblclick_exe`) so the
       registered command does not depend on which Python is on PATH
 
 ### Phase 3 — Dependency management (PEP 723 / uv)
@@ -69,17 +69,17 @@ Python).
       execute via `uv run` instead of plain `python`
 - [x] Graceful fallback when uv is not installed (clear message + install link;
       optionally offer to install it)
-- [x] Per-script opt-out directive read by the wrapper itself (e.g. `# pyexewrap: off`
+- [x] Per-script opt-out directive read by the wrapper itself (e.g. `# pydblclick: off`
       comment) — replaces the per-script granularity the shebang used to provide
 
 ### Phase 4 — Distribution
-- [x] Rewrite the README around the new flow: install → `pyexewrap register` →
+- [x] Rewrite the README around the new flow: install → `pydblclick register` →
       double-click any script (PEP 723 aware)
 - [ ] Publish to PyPI
 
 ## Non-goals
 
-- Becoming a home-made IDE. The value of pyexewrap is being a thin, invisible wrapper;
+- Becoming a home-made IDE. The value of pydblclick is being a thin, invisible wrapper;
   IDE-like features (code injection, heavy customization) are out of scope.
 - Supporting the shebang mechanism beyond legacy documentation.
 

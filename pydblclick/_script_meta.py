@@ -3,8 +3,8 @@
 Two kinds of information are extracted by the parent supervisor before it
 decides how to launch the script:
 
-- The pyexewrap opt-out directive: a `# pyexewrap: off` comment line anywhere
-  in the script makes pyexewrap step aside and run it with plain Python
+- The pydblclick opt-out directive: a `# pydblclick: off` comment line anywhere
+  in the script makes pydblclick step aside and run it with plain Python
   (no wrapping, no pause). This is the per-script granularity that the legacy
   shebang used to provide, but application-level: no launcher can take it away.
 
@@ -20,7 +20,8 @@ PEP723_BLOCK_RE = re.compile(
     r"(?m)^# /// (?P<type>[a-zA-Z0-9-]+)$\s(?P<content>(^#(| .*)$\s)+)^# ///$"
 )
 
-OPT_OUT_RE = re.compile(r"(?mi)^#\s*pyexewrap:\s*off\s*$")
+# "pyexewrap" is the project's former name, kept as a legacy alias
+OPT_OUT_RE = re.compile(r"(?mi)^#\s*(?:pydblclick|pyexewrap):\s*off\s*$")
 
 
 def read_script_text(path):
@@ -33,7 +34,7 @@ def read_script_text(path):
 
 
 def has_opt_out(text):
-    """True if the script asks pyexewrap to step aside (`# pyexewrap: off`)."""
+    """True if the script asks pydblclick to step aside (`# pydblclick: off`)."""
     return bool(OPT_OUT_RE.search(text))
 
 

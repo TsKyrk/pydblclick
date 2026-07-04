@@ -1,3 +1,3 @@
 @echo off
-set pyexewrap_simulate_doubleclick=1
-python -m pyexewrap 12_Normal_WindowedHelloWorld_with_exception.pyw
+set pydblclick_simulate_doubleclick=1
+python -m pydblclick 12_Normal_WindowedHelloWorld_with_exception.pyw
