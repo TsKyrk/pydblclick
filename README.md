@@ -1,8 +1,5 @@
 # What is pydblclick ?
 
-*(formerly known as **pyexewrap** — renamed before the first PyPI release, since the old
-name referenced the deprecated `py.exe` launcher and suggested exe-building tools)*
-
 pydblclick makes Python scripts pleasant to run **by double-click** on Windows — for you,
 your colleagues, or anyone you share a one-file script with:
 
@@ -44,8 +41,8 @@ pydblclick register
 `pydblclick register` sets pydblclick as the default handler for `.py`/`.pyw` double-clicks
 using the standard Windows mechanism (ProgID + UserChoice). This works on **all** Python
 installations — classic installer *and* MSIX Python Manager (see
-[MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md)). A backup of the previous file
-associations is saved automatically before any change.
+[MSIX_COMPATIBILITY.md](https://github.com/TsKyrk/pydblclick/blob/main/MSIX_COMPATIBILITY.md)).
+A backup of the previous file associations is saved automatically before any change.
 
 To undo everything:
 
@@ -68,7 +65,8 @@ scripts still run with plain Python, and a message explains what to install.
 ## Double-click (the main purpose)
 
 Once registered, **every** `.py`/`.pyw` file you double-click runs enhanced. Nothing to
-add to the scripts themselves. Try the scripts in the [examples](examples/) folder.
+add to the scripts themselves. Try the scripts in the
+[examples](https://github.com/TsKyrk/pydblclick/tree/main/examples) folder.
 
 ## Sharing dependency-aware one-file scripts (PEP 723 + uv)
 
@@ -119,63 +117,48 @@ create a shortcut to the script (ALT+drag & drop) and set the icon in its proper
 
 # How it works
 
-Two processes (see [CLAUDE.md](CLAUDE.md) architecture notes and [ROADMAP.md](ROADMAP.md)):
-
-- a thin **parent supervisor** (`python -m pydblclick`) which guarantees the window
-  survives anything — even `os._exit()`, a native crash, or a script that closes stdin;
-- a **child engine** (`python -m pydblclick._child`) which runs your script with exact
-  plain-Python semantics (`runpy`), shows clean tracebacks (no wrapper frames), and
-  owns the pause menu. For PEP 723 scripts the child runs inside the uv-provisioned
-  environment.
+Two processes: a thin **parent supervisor** which guarantees the window survives
+anything — even `os._exit()`, a native crash, or a script that closes stdin — and a
+**child engine** which runs your script with exact plain-Python semantics (`runpy`),
+shows clean tracebacks (no wrapper frames), and owns the pause menu. For PEP 723
+scripts the child runs inside the uv-provisioned environment.
 
 No monkey-patching, no code injection: `__name__`, `__file__`, `sys.argv`, exit codes
 and `exit()`/`quit()` behave exactly as with plain Python.
 
-# Legacy: the shebang method (deprecated)
-
-Before the 2026 pivot (under the project's former name *pyexewrap*), scripts were enhanced
-individually with a shebang line (`#!/usr/bin/env python -m pydblclick`) read by the classic
-`py.exe` launcher, and installation went through a system-wide PYTHONPATH (the helper scripts
-have since been removed). This mechanism **still works on classic-installer systems**
-provided pydblclick is importable by the system Python (`pip install` does that), but it is
-a dead end:
-
-- the classic `py.exe` launcher is deprecated since Python 3.14 and will not be produced
-  for Python 3.16+;
-- the MSIX Python Manager (Microsoft Store / "Python Install Manager" on python.org)
-  never reads shebangs on double-click, and its shebang support
-  [does not allow arguments](https://docs.python.org/3/using/windows.html) such as
-  `-m pydblclick`.
-
-Use `pydblclick register` instead; per-script granularity is provided by the
-`# pydblclick: off` directive. See [MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md) for the
-full compatibility matrix and history.
+Full details in [ARCHITECTURE.md](https://github.com/TsKyrk/pydblclick/blob/main/ARCHITECTURE.md).
 
 # Compatibility with the MSIX Python Manager (python/pymanager)
 
 The `PythonSoftwareFoundation.PythonManager` MSIX package intercepts `.py`/`.pyw`
-double-clicks through Windows App Model activation, bypassing shebangs and registry
-ftype settings. **`pydblclick register` works with it**: the MSIX launcher honors
-UserChoice pointing to the `pydblclick.PyFile` ProgID (confirmed by testing).
+double-clicks through Windows App Model activation, bypassing registry ftype settings.
+**`pydblclick register` works with it**: the MSIX launcher honors UserChoice pointing
+to the `pydblclick.PyFile` ProgID (confirmed by testing).
 
 If double-clicks don't reach pydblclick, run `pydblclick diagnose` — it detects MSIX
 interference and tells you what to fix. Details in
-[MSIX_COMPATIBILITY.md](MSIX_COMPATIBILITY.md).
-
-# Note about py.exe
-
-`py.exe` was the Windows wrapper for multiple Python interpreters, making pydblclick a
-wrapper of a wrapper. Its pymanager successor confirms that launcher-level wrapping is
-not extensible — which is why pydblclick now registers itself as the file handler, the
-one mechanism every launcher must respect.
+[MSIX_COMPATIBILITY.md](https://github.com/TsKyrk/pydblclick/blob/main/MSIX_COMPATIBILITY.md).
 
 # Todos
 
-- Publish to PyPI (`pip install pydblclick`)
 - Standalone `pydblclick.exe` handler (no Python required to bootstrap; uv can even
   provision Python itself)
 - Offer to install uv when a PEP 723 script is double-clicked and uv is missing
 - Context menu items "Run with pydblclick" / "Bypass pydblclick"
+
+# History
+
+pydblclick was born as **pyexewrap**: scripts were enhanced one by one with a shebang
+line (`#!/usr/bin/env python -m pyexewrap`) read by the classic `py.exe` launcher, and
+installed via a system-wide PYTHONPATH. That mechanism died with the platform — the
+classic launcher is deprecated since Python 3.14, and the MSIX Python Manager neither
+reads shebangs on double-click nor allows arguments in them — so the project pivoted in
+2026 to standard file-handler registration (`pydblclick register`) and was renamed, the
+old name wrongly suggesting exe-building tools. A few compatibility aliases from that
+era are still honored (`# pyexewrap: off`, `pyexewrap_customizations`, the
+`pyexewrap_simulate_doubleclick` env var), and `register`/`unregister` clean up registry
+entries left by old installs. The full investigation is preserved in
+[MSIX_COMPATIBILITY.md](https://github.com/TsKyrk/pydblclick/blob/main/MSIX_COMPATIBILITY.md).
 
 # Contributions
 

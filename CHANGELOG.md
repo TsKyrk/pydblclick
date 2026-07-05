@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1 (2026-07)
+
+Documentation-only release.
+
+- New [ARCHITECTURE.md](https://github.com/TsKyrk/pydblclick/blob/main/ARCHITECTURE.md):
+  two-process design, protocols, windowless `.pyw` flow, PEP 723 delegation,
+  design principles.
+- README reworked: installation instructions show `pip install pydblclick`
+  (the 0.2.0 PyPI page was built before publication), legacy/pyexewrap
+  considerations consolidated into a single History paragraph, absolute links
+  so the PyPI project page works, stale todo removed.
+
 ## 0.2.0 (2026-07) — the pivot release
 
 The delivery mechanism moves from the deprecated `py.exe` shebang to standard
