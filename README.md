@@ -73,13 +73,15 @@ scripts still run with plain Python, and a message explains what to install.
 
 # Usage
 
-## Double-click (the main purpose)
+## Main usage
+
+### Double-click
 
 Once registered, **every** `.py`/`.pyw` file you double-click runs enhanced. Nothing to
 add to the scripts themselves. Try the scripts in the
 [examples](https://github.com/TsKyrk/pydblclick/tree/main/examples) folder.
 
-## Sharing dependency-aware one-file scripts (PEP 723 + uv)
+### Sharing dependency-aware one-file scripts (PEP 723 + uv)
 
 Declare dependencies at the top of the script, in standard PEP 723 format:
 
@@ -97,7 +99,11 @@ the dependencies in an ephemeral environment, and pydblclick keeps the window op
 its usual menu. This is a standard format — the same file also runs with `uv run` alone
 on any platform. Use `uv add --script myscript.py requests` to maintain the block.
 
-## Opting a script out
+## Advanced usage
+
+Optional, per-script features for seasoned users — plain scripts need none of this.
+
+### Opting a script out
 
 Add this comment anywhere in a script to make pydblclick step aside (plain Python
 behavior, no pause):
@@ -106,7 +112,7 @@ behavior, no pause):
 # pydblclick: off
 ```
 
-## Pause only on error
+### Pause only on error
 
 To make an individual script skip the final pause *unless an exception occurred*:
 
@@ -114,14 +120,14 @@ To make an individual script skip the final pause *unless an exception occurred*
 pydblclick_customizations['must_pause_in_console'] = False
 ```
 
-## Command line
+### Command line
 
 `pydblclick <script.py> [args...]` (or `python -m pydblclick <script.py> [args...]`) wraps
 a script explicitly. In a console there is no pause; set the
 `pydblclick_simulate_doubleclick` env var to force double-click behavior (useful in
 batch files and tests).
 
-## Custom icons
+### Custom icons
 
 Scripts launched via pydblclick show the registered Python icon. For a custom icon,
 create a shortcut to the script (ALT+drag & drop) and set the icon in its properties.
@@ -138,6 +144,27 @@ No monkey-patching, no code injection: `__name__`, `__file__`, `sys.argv`, exit 
 and `exit()`/`quit()` behave exactly as with plain Python.
 
 Full details in [ARCHITECTURE.md](https://github.com/TsKyrk/pydblclick/blob/main/ARCHITECTURE.md).
+
+# Security
+
+pydblclick is designed to be fully auditable:
+
+- **Pure Python, no binaries**: the published wheel contains only readable `.py` files
+  (tag `py3-none-any`) — no compiled extension, no bundled executable. The
+  `pydblclick.exe` that appears in `Scripts\` is generated locally by **pip** itself,
+  the same standard launcher stub every console-script package gets (`pip.exe`,
+  `pytest.exe`...).
+- **No dependencies**: standard library only. Nothing else gets pulled onto your machine.
+- **Nothing runs at install time**: installing a wheel is a plain file copy (PEP 427).
+  The first pydblclick code that executes is the one you launch — identical to what you
+  can read in `site-packages` or on GitHub.
+- **Traceable builds**: releases are built and published by
+  [GitHub Actions](https://github.com/TsKyrk/pydblclick/blob/main/.github/workflows/publish.yml)
+  from public tags via PyPI trusted publishing, with provenance attestations attached to
+  the files on PyPI.
+- **Reversible system changes**: the only thing touching your system is
+  `pydblclick register`, which writes standard per-user file-association registry keys —
+  backed up automatically beforehand, and fully removed by `pydblclick unregister`.
 
 # Compatibility with the MSIX Python Manager (python/pymanager)
 

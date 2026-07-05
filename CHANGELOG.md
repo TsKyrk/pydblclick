@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.3 (2026-07)
+
+Documentation-only release.
+
+- New **Security** section in the README: pure-Python wheel with no binaries
+  and no dependencies, nothing executed at install time, CI-built releases
+  with provenance, reversible registry changes.
+- Usage section split into **Main usage** (double-click, PEP 723 dependency
+  handling) and **Advanced usage** (opt-out directive, pause-on-error,
+  command line, custom icons).
+
 ## 0.2.2 (2026-07)
 
 Documentation-only release.

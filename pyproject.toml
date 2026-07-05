@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pydblclick"
-version = "0.2.2"
+version = "0.2.3"
 description = "Enhances the user experience of Python scripts run via double-click on Windows"
 readme = "README.md"
 license = "MIT"
