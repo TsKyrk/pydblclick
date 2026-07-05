@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2 (2026-07)
+
+Documentation-only release.
+
+- The installation section now documents the one-time manual "Open with >
+  Always" confirmation (UserChoice cannot be set programmatically; the step
+  is always needed under the MSIX Python Manager, or when another app was
+  previously chosen for `.py`/`.pyw`).
+
 ## 0.2.1 (2026-07)
 
 Documentation-only release.
