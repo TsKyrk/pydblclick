@@ -44,6 +44,17 @@ installations — classic installer *and* MSIX Python Manager (see
 [MSIX_COMPATIBILITY.md](https://github.com/TsKyrk/pydblclick/blob/main/MSIX_COMPATIBILITY.md)).
 A backup of the previous file associations is saved automatically before any change.
 
+> **One manual confirmation may be required.** Windows protects the user's default-app
+> choice (UserChoice): it cannot be set programmatically. If pydblclick is not invoked
+> on double-click after `register` — always the case with the MSIX Python Manager, or
+> when another app was previously chosen — confirm it once in Explorer:
+>
+> right-click a `.py` file → **Open with** → **Choose another app** → **pydblclick** →
+> **Always** — then do the same once with a `.pyw` file.
+>
+> `pydblclick register` detects your installation type and prints these instructions
+> when the manual step is needed.
+
 To undo everything:
 
 ```commandline
