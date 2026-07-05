@@ -1,34 +1,30 @@
 # pydblclick and the MSIX Python Manager — compatibility notes
 
-## How pydblclick is invoked (the normal chain)
+## How pydblclick is invoked
 
-pydblclick relies on a specific chain of events when a user double-clicks a `.py` file:
+Since the 2026 pivot, pydblclick registers itself as the Windows file handler
+(`pydblclick register`): the ProgIDs `pydblclick.PyFile`/`pydblclick.PywFile` point
+directly to `python.exe -m pydblclick` / `pythonw.exe -m pydblclick`. No launcher,
+no shebang in the chain:
 
 ```
 Double-click on script.py
-  → Windows Explorer resolves the file handler
-  → launches py.exe "script.py"
-  → py.exe reads the shebang: #!/usr/bin/env python -m pydblclick
-  → py.exe re-invokes: python.exe -m pydblclick script.py
+  → Windows Explorer resolves the file handler (UserChoice → ProgID)
+  → launches: python.exe -m pydblclick script.py
   → pydblclick wraps and executes the script
 ```
 
-Two components are essential:
-
-1. **`py.exe`** (the Windows Python Launcher) must be the program that opens `.py` files.
-   Only `py.exe` knows how to read shebang lines — `python.exe` itself ignores them entirely
-   (the `#!` line is treated as a regular Python comment).
-
-2. **pydblclick must be importable** by the Python environment that `py.exe` selects.
-   This is ensured by `add_to_pythonpath.py`, which adds the repo to the system PYTHONPATH.
+The **legacy mechanism** (project's former name *pyexewrap*) relied on `py.exe` reading a
+`#!/usr/bin/env python -m pydblclick` shebang, with the package made importable through a
+system-wide PYTHONPATH. That chain is what MSIX broke — this document records why.
 
 ## Full compatibility matrix (confirmed by testing)
 
 | Invocation method | Works with MSIX? | Works without MSIX? |
 |---|---|---|
-| `activate.py` → ByDefaultActivation (UserChoice) | **Yes** ✓ | **Yes** ✓ |
-| Shebang `#!/usr/bin/env python -m pydblclick` on double-click | **No** ✗ | **Yes** ✓ |
-| `activate.py` HKLM ftype layer | **No** ✗ | **Yes** ✓ |
+| `pydblclick register` → ProgID + UserChoice | **Yes** ✓ | **Yes** ✓ |
+| Shebang `#!/usr/bin/env python -m pydblclick` on double-click (legacy) | **No** ✗ | **Yes** ✓ |
+| HKLM ftype layer alone | **No** ✗ | **Yes** ✓ |
 
 ### Why the shebang approach does not work under MSIX
 
@@ -40,12 +36,11 @@ Under MSIX, the Python Manager intercepts double-clicks via `appxmanifest.xml` a
 read, and pydblclick is never invoked. The script runs as plain Python.
 
 This was confirmed by testing: adding `input("press enter")` to the script and double-clicking
-shows the script output with no pydblclick output whatsoever, even with `pydblclick_verbose = True`.
+shows the script output with no pydblclick output whatsoever, even with verbose mode on.
 
-> **Note on `.pth`:** `add_to_pythonpath.py` still installs a `pydblclick.pth` file in
-> site-packages. This is a safety net for ByDefaultActivation (UserChoice), ensuring pydblclick
-> remains findable even if PYTHONPATH is not propagated in the App Model activation context.
-> It does not help the shebang approach.
+> Since the pivot this is moot: the registered handler command invokes
+> `python.exe -m pydblclick` directly, with pydblclick installed via pip in that
+> interpreter — no shebang, no PYTHONPATH involved.
 
 ## The MSIX Python Manager
 
@@ -79,45 +74,40 @@ MSIX application declared in the manifest — the pymanager launcher (`py.exe`).
 ### What is bypassed by MSIX
 
 All changes to `shell\open\command` registry keys (made by `winpyfiles set-command` or
-`activate.py`'s HKLM layer) have **no effect** on double-click behavior while the MSIX
+the HKLM ftype layer) have **no effect** on double-click behavior while the MSIX
 package is installed. The App Model reads `appxmanifest.xml` directly.
 
 ### What is NOT bypassed
 
 `HKCU\Software\Classes\pydblclick.PyFile\shell\open\command` is a standard HKCU ProgID key,
 not an AppX key. UserChoice set via the Windows UI is honored by the MSIX launcher.
-This is why `activate.py`'s ProgID + UserChoice approach works under MSIX.
+This is why the ProgID + UserChoice approach of `pydblclick register` works under MSIX.
 
-## How to switch ByDefaultActivation on and off
+## How to switch pydblclick on and off
 
-### Enable (all .py files wrapped, with or without shebang)
+### Enable (all .py/.pyw files wrapped)
 
 ```
-py tools/ByDefaultActivation/activate.py
+pydblclick register
 ```
 
-On MSIX systems, `activate.py` registers the `pydblclick.PyFile` ProgID and then prompts you
-to set it as the default via Windows Settings (UserChoice). On classic systems, it also
-updates the HKLM ftype automatically (UAC prompt appears if needed).
+On MSIX systems, it registers the `pydblclick.PyFile`/`pydblclick.PywFile` ProgIDs and then
+prompts you to set them as the default via Windows Settings (UserChoice). On classic systems,
+it also updates the HKLM ftype automatically (UAC prompt appears if needed).
 
 ### Disable (back to plain Python on double-click)
 
 ```
-py tools/ByDefaultActivation/disable.py
+pydblclick unregister
 ```
 
-Removes the `pydblclick.PyFile` ProgID and resets the HKLM ftype on classic systems.
+Removes the pydblclick ProgIDs and resets the HKLM ftype on classic systems.
 On MSIX, shows instructions if UserChoice needs to be cleared manually.
-
-> **Note (MSIX):** after `disable.py`, pydblclick is not invoked on any double-click.
-> The shebang approach does not work under MSIX regardless of `.pth` or PYTHONPATH —
-> the Python Manager bypasses py.exe entirely. Re-enable via `activate.py` (UserChoice)
-> to restore wrapping.
 
 ### Diagnose current state
 
 ```
-py tools/ByDefaultActivation/diagnose.py
+pydblclick diagnose
 # or equivalently:
 py -m winpyfiles diagnose
 ```
@@ -137,9 +127,9 @@ This means:
 - The classic Setup.exe (which configures the HKLM ftype registry) may also disappear
 
 **Impact on pydblclick:**
-- **ByDefaultActivation via `activate.py` (MSIX path)**: continues to work — the pymanager
-  launcher honors UserChoice and reads the `pydblclick.PyFile` HKCU ProgID.
-- **ByDefaultActivation via `activate.py` HKLM layer**: stops working when the classic
-  Setup.exe disappears, as there will be no `Python.File` HKLM ftype to patch.
-- **Shebang approach on double-click**: does **not** work under MSIX — the Python Manager
-  invokes `python.exe` directly, bypassing `py.exe` and the shebang entirely.
+- **`pydblclick register` (ProgID + UserChoice)**: continues to work — the pymanager
+  launcher honors UserChoice and reads the pydblclick HKCU ProgIDs.
+- **HKLM ftype layer**: stops working when the classic Setup.exe disappears, as there
+  will be no `Python.File` HKLM ftype to patch. Harmless: the ProgID path remains.
+- **Legacy shebang approach on double-click**: does **not** work under MSIX — the Python
+  Manager invokes `python.exe` directly, bypassing `py.exe` and the shebang entirely.

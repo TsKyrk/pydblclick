@@ -115,9 +115,9 @@ Windows Settings > Apps > Installed apps.
 
 ## Installation
 
-winpyfiles is currently bundled with pydblclick. Add the repo root to `PYTHONPATH` and it becomes
-importable system-wide:
+winpyfiles ships with pydblclick:
 
 ```
-python add_to_pythonpath.py  # from the pydblclick repo root, admin rights required
+pip install pydblclick
+py -m winpyfiles diagnose
 ```

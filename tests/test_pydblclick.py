@@ -2,7 +2,7 @@
 
 These tests verify the core behavior of the tool and protect against regressions.
 They call run_script() from pydblclick._child directly (in-process).
-For interactive ergonomic tests demonstrating the tool's UX, see unit_tests/.
+For interactive demos of the tool's UX, double-click the scripts in examples/.
 """
 import os
 import pytest

@@ -10,8 +10,8 @@ file associations) rather than code bugs. A failure here means pydblclick
 will not be invoked on double-click, even if the unit tests pass.
 
 MSIX Python Manager compatibility:
-  Only ByDefaultActivation via activate.py (ProgID + UserChoice) works with MSIX;
-  the shebang approach does not. See MSIX_COMPATIBILITY.md for the full matrix.
+  Only the ProgID + UserChoice registration ('pydblclick register') works with
+  MSIX; the shebang approach does not. See MSIX_COMPATIBILITY.md for the matrix.
 """
 import pytest
 
@@ -47,7 +47,7 @@ def test_py_ftype_command_references_pydblclick():
         if not pid:
             pytest.fail(
                 f"{ext_info.extension}: no ProgID configured -- extension is unmapped.\n"
-                f"Run 'py -m winpyfiles diagnose' then 'py tools/ByDefaultActivation/activate.py'."
+                f"Run 'pydblclick diagnose' then 'pydblclick register'."
             )
         info = d.prog_ids.get(pid)
         cmd = info.command_effective if info else None
@@ -55,6 +55,6 @@ def test_py_ftype_command_references_pydblclick():
             f"{ext_info.extension}: pydblclick not found in the ftype command.\n"
             f"  ProgID  : {pid}\n"
             f"  Command : {cmd!r}\n\n"
-            f"Run 'py -m winpyfiles diagnose' for full details, then\n"
-            f"'py tools/ByDefaultActivation/activate.py' to configure."
+            f"Run 'pydblclick diagnose' for full details, then\n"
+            f"'pydblclick register' to configure."
         )

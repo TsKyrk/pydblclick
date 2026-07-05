@@ -7,8 +7,7 @@ legacy shebang approach (see ROADMAP.md).
 
 The registered handler command points to the interpreter running this CLI
 (sys.executable): by definition it can import pydblclick, so no PYTHONPATH
-setup is needed. Consolidates tools/ByDefaultActivation/activate.py and
-disable.py into the package itself.
+setup is needed.
 """
 import ctypes
 import os

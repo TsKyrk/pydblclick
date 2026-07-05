@@ -38,6 +38,12 @@ Windows file-handler registration. See [ROADMAP.md](ROADMAP.md) for the full sto
   exception, the post-mortem globals are captured from the traceback frame.
 - `exit()`/`quit()` monkey-patching removed.
 
+### Removed
+- Legacy installation and activation scripts, superseded by `pip install` +
+  `pydblclick register`: `add_to_pythonpath.py`, `tools/ByDefaultActivation/`,
+  `tools/pyexewrap_exe/`, `run_tests.py`, and the manual `unit_tests/` scenarios
+  (now covered by the automated suite in `tests/`).
+
 ### Fixed
 - Closing the console window with the X button no longer triggers a second
   "fallback pause" console (STATUS_CONTROL_C_EXIT is recognized as a

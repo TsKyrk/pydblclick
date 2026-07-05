@@ -61,8 +61,9 @@ Python).
 - [x] `pydblclick register` / `pydblclick unregister` CLI commands — merge
       `tools/ByDefaultActivation/activate.py`/`disable.py` and winpyfiles into the
       main CLI (ProgID + UserChoice flow, automatic backup)
-- [ ] Build a small standalone handler exe (modernize `tools/pydblclick_exe`) so the
-      registered command does not depend on which Python is on PATH
+- [ ] Build a small standalone handler exe so the registered command does not
+      depend on which Python is on PATH (a PyInstaller prototype existed in
+      tools/, removed during the 0.2.0 cleanup — see git history)
 
 ### Phase 3 — Dependency management (PEP 723 / uv)
 - [x] Detect the PEP 723 `# /// script` block in the target script; if present,

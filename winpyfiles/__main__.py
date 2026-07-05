@@ -1,25 +1,9 @@
 """CLI entry point: python -m winpyfiles [command]"""
-import subprocess
 import sys
 
 from ._assoc import diagnose, find_py_exe, find_msix_python_package, set_command
 from ._backup import backup, restore
 from ._elevation import is_admin, elevate_and_rerun
-
-
-def _check_pth_file() -> bool:
-    """Return True if pydblclick.pth is present in py.exe's site-packages."""
-    try:
-        result = subprocess.run(
-            ["py", "-c", "import site; print(site.getsitepackages()[0])"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
-            return False
-        import pathlib
-        return (pathlib.Path(result.stdout.strip()) / "pydblclick.pth").exists()
-    except Exception:
-        return False
 
 
 def _interpret_command(command):
@@ -87,14 +71,13 @@ Windows reads settings from registry locations, in priority order:
         print(f"    Status          : {status}")
         print()
 
-    _PYDBLCLICK_PROG_ID = "pydblclick.PyFile"
+    _PYDBLCLICK_PROG_IDS = ("pydblclick.PyFile", "pydblclick.PywFile")
     _bda_user_choices = {
         ext.extension: ext.user_choice
         for ext in d.extensions
-        if ext.user_choice == _PYDBLCLICK_PROG_ID
+        if ext.user_choice in _PYDBLCLICK_PROG_IDS
     }
     _bda_active = bool(_bda_user_choices)
-    _pth_reliable = _check_pth_file()
 
     print("--- MSIX AppX Handlers (Windows 10/11) ---\n")
     if d.msix_package:
@@ -107,7 +90,7 @@ Windows reads settings from registry locations, in priority order:
         print()
         print("  Compatibility with pydblclick:")
         print()
-        print("    [!!] activate.py AppX/HKLM registry layers: do NOT work.")
+        print("    [!!] HKLM ftype registry layer: does NOT work.")
         print("         The App Model reads AppxManifest.xml directly, bypassing all registry")
         print("         ftype/assoc/shell\\open\\command changes.")
         print()
@@ -116,13 +99,13 @@ Windows reads settings from registry locations, in priority order:
         print("         the shebang line is treated as a Python comment, pydblclick is never invoked.")
         print()
         if _bda_active:
-            print("    [OK] ByDefaultActivation via activate.py + UserChoice: active.")
-            print("         UserChoice is set to pydblclick.PyFile -- all .py/.pyw files")
-            print("         will be wrapped by pydblclick on double-click (with or without shebang).")
+            print("    [OK] pydblclick registration (ProgID + UserChoice): active.")
+            print("         UserChoice is set to a pydblclick ProgID -- these files")
+            print("         will be wrapped by pydblclick on double-click.")
         else:
-            print("    [!!] ByDefaultActivation: inactive -- pydblclick is NOT invoked on double-click.")
+            print("    [!!] pydblclick registration: inactive -- pydblclick is NOT invoked on double-click.")
             print("         The shebang approach does not work under MSIX (see above).")
-            print("         To enable: run 'py tools/ByDefaultActivation/activate.py'")
+            print("         To enable: run 'pydblclick register'")
             print("         and follow the on-screen instructions to set UserChoice via Windows.")
         print()
         print("  To remove MSIX and restore the classic ftype mechanism:")
@@ -156,25 +139,18 @@ Windows reads settings from registry locations, in priority order:
         if not cmd:
             warnings.append(f"{ext.extension}: ProgID '{effective_pid}' has no command")
 
-    if _pth_reliable:
-        print("  pydblclick.pth : [OK] found in site-packages -- importable in all contexts (incl. MSIX)")
-    else:
-        print("  pydblclick.pth : [?]  not found -- shebang unreliable under MSIX double-click")
-        print("                       Fix: re-run add_to_pythonpath.py")
-
     if d.msix_handlers:
-        shebang_status = "reliable (pydblclick.pth present)" if _pth_reliable else "UNRELIABLE (pydblclick.pth missing -- re-run add_to_pythonpath.py)"
         if _bda_active:
             warnings.insert(0,
-                "MSIX Python Manager is active -- activate.py registry layers have NO EFFECT. "
-                f"ByDefaultActivation via activate.py + UserChoice is active. "
-                f"Shebang approach: {shebang_status}. See 'MSIX AppX Handlers' section above."
+                "MSIX Python Manager is active -- registry ftype layers have NO EFFECT. "
+                "pydblclick registration (ProgID + UserChoice) is active. "
+                "See 'MSIX AppX Handlers' section above."
             )
         else:
             warnings.insert(0,
-                "MSIX Python Manager is active -- activate.py registry layers have NO EFFECT. "
-                "ByDefaultActivation is inactive (UserChoice not set to pydblclick.PyFile). "
-                f"Shebang approach: {shebang_status}. See 'MSIX AppX Handlers' section above."
+                "MSIX Python Manager is active -- registry ftype layers have NO EFFECT. "
+                "pydblclick registration is inactive (UserChoice not set to a pydblclick ProgID). "
+                "Fix: run 'pydblclick register'. See 'MSIX AppX Handlers' section above."
             )
 
     if warnings:

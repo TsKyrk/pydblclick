@@ -134,10 +134,12 @@ and `exit()`/`quit()` behave exactly as with plain Python.
 
 # Legacy: the shebang method (deprecated)
 
-Before the 2026 pivot, scripts were enhanced individually with a shebang line
-(`#!/usr/bin/env python -m pydblclick`) read by the classic `py.exe` launcher, and
-installation went through `add_to_pythonpath.py`. This mechanism **still works on
-classic-installer systems** but is a dead end:
+Before the 2026 pivot (under the project's former name *pyexewrap*), scripts were enhanced
+individually with a shebang line (`#!/usr/bin/env python -m pydblclick`) read by the classic
+`py.exe` launcher, and installation went through a system-wide PYTHONPATH (the helper scripts
+have since been removed). This mechanism **still works on classic-installer systems**
+provided pydblclick is importable by the system Python (`pip install` does that), but it is
+a dead end:
 
 - the classic `py.exe` launcher is deprecated since Python 3.14 and will not be produced
   for Python 3.16+;
@@ -172,7 +174,7 @@ one mechanism every launcher must respect.
 
 - Publish to PyPI (`pip install pydblclick`)
 - Standalone `pydblclick.exe` handler (no Python required to bootstrap; uv can even
-  provision Python itself) — see `tools/pydblclick_exe` for the current prototype
+  provision Python itself)
 - Offer to install uv when a PEP 723 script is double-clicked and uv is missing
 - Context menu items "Run with pydblclick" / "Bypass pydblclick"
 
