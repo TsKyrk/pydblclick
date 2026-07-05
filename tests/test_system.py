@@ -16,7 +16,7 @@ MSIX Python Manager compatibility:
 import pytest
 
 try:
-    from winpyfiles._assoc import diagnose, find_msix_python_package, find_python_appx_prog_ids
+    from pydblclick.winpyfiles._assoc import diagnose, find_msix_python_package, find_python_appx_prog_ids
     HAS_WINPYFILES = True
 except ImportError:
     HAS_WINPYFILES = False

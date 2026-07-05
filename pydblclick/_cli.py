@@ -14,11 +14,11 @@ import os
 import sys
 import winreg
 
-from winpyfiles import diagnose, find_py_exe, find_python_appx_prog_ids, set_command
-from winpyfiles._assoc import find_msix_python_package
-from winpyfiles._registry import HKCU, write_value, notify_shell_assoc_changed
-from winpyfiles._elevation import is_admin
-from winpyfiles._backup import backup
+from pydblclick.winpyfiles import diagnose, find_py_exe, find_python_appx_prog_ids, set_command
+from pydblclick.winpyfiles._assoc import find_msix_python_package
+from pydblclick.winpyfiles._registry import HKCU, write_value, notify_shell_assoc_changed
+from pydblclick.winpyfiles._elevation import is_admin
+from pydblclick.winpyfiles._backup import backup
 
 PROG_ID = "pydblclick.PyFile"
 PROG_ID_PYW = "pydblclick.PywFile"
@@ -280,7 +280,7 @@ def cmd_unregister(elevated=False):
 
 
 def cmd_diagnose():
-    from winpyfiles.__main__ import cmd_diagnose as winpyfiles_diagnose
+    from pydblclick.winpyfiles.__main__ import cmd_diagnose as winpyfiles_diagnose
     winpyfiles_diagnose()
     return 0
 

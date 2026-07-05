@@ -109,7 +109,7 @@ On MSIX, shows instructions if UserChoice needs to be cleared manually.
 ```
 pydblclick diagnose
 # or equivalently:
-py -m winpyfiles diagnose
+py -m pydblclick.winpyfiles diagnose
 ```
 
 ## Long-term outlook

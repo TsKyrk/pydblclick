@@ -38,6 +38,10 @@ Windows file-handler registration. See [ROADMAP.md](ROADMAP.md) for the full sto
   exception, the post-mortem globals are captured from the traceback frame.
 - `exit()`/`quit()` monkey-patching removed.
 
+- winpyfiles becomes the `pydblclick.winpyfiles` subpackage: the wheel ships a
+  single top-level package (no risk of colliding with a future `winpyfiles`
+  distribution on PyPI). CLI: `py -m pydblclick.winpyfiles <command>`.
+
 ### Removed
 - Legacy installation and activation scripts, superseded by `pip install` +
   `pydblclick register`: `add_to_pythonpath.py`, `tools/ByDefaultActivation/`,

@@ -1,4 +1,4 @@
-"""CLI entry point: python -m winpyfiles [command]"""
+"""CLI entry point: python -m pydblclick.winpyfiles [command]"""
 import sys
 
 from ._assoc import diagnose, find_py_exe, find_msix_python_package, set_command
@@ -109,7 +109,7 @@ Windows reads settings from registry locations, in priority order:
             print("         and follow the on-screen instructions to set UserChoice via Windows.")
         print()
         print("  To remove MSIX and restore the classic ftype mechanism:")
-        print("    Run 'py -m winpyfiles remove-msix'")
+        print("    Run 'py -m pydblclick.winpyfiles remove-msix'")
         print("    Or uninstall 'Python Manager' manually from Windows Settings > Apps.")
     elif d.msix_package:
         print("  [!] Package found on disk but no AppX ProgIDs detected in registry.")
@@ -168,7 +168,7 @@ def cmd_backup() -> None:
 
 def cmd_restore() -> None:
     if len(sys.argv) < 3:
-        print("Usage: py -m winpyfiles restore <backup_file.json>")
+        print("Usage: py -m pydblclick.winpyfiles restore <backup_file.json>")
         sys.exit(1)
     path = sys.argv[2]
     elevate = "--elevate" in sys.argv
@@ -183,7 +183,7 @@ def cmd_restore() -> None:
 
     restore(path)
     print(f"Restored from: {path}")
-    print("Run 'py -m winpyfiles diagnose' to verify.")
+    print("Run 'py -m pydblclick.winpyfiles diagnose' to verify.")
 
 
 def cmd_reset() -> None:
@@ -216,7 +216,7 @@ def cmd_reset() -> None:
     if not prog_ids_set:
         print("[!] No effective ProgIDs found. Nothing to reset.")
     else:
-        print("Done. Run 'py -m winpyfiles diagnose' to verify.")
+        print("Done. Run 'py -m pydblclick.winpyfiles diagnose' to verify.")
 
 
 def cmd_remove_msix() -> None:
@@ -239,7 +239,7 @@ def cmd_remove_msix() -> None:
         text=True,
     )
     if result.returncode == 0:
-        print("Done. Run 'py -m winpyfiles diagnose' to verify.")
+        print("Done. Run 'py -m pydblclick.winpyfiles diagnose' to verify.")
     else:
         print(f"[!] Removal failed (exit code {result.returncode}).")
         if result.stderr.strip():
@@ -253,8 +253,8 @@ def cmd_set_command() -> None:
     elevate = "--elevate" in sys.argv
 
     if len(args) < 2:
-        print("Usage: py -m winpyfiles set-command <ProgID> <command> [--elevate]")
-        print("Example: py -m winpyfiles set-command Python.File '\"C:\\Windows\\py.exe\" \"%1\" %*'")
+        print("Usage: py -m pydblclick.winpyfiles set-command <ProgID> <command> [--elevate]")
+        print("Example: py -m pydblclick.winpyfiles set-command Python.File '\"C:\\Windows\\py.exe\" \"%1\" %*'")
         sys.exit(1)
 
     prog_id, command = args[0], args[1]
@@ -269,7 +269,7 @@ def cmd_set_command() -> None:
 
     set_command(prog_id, command)
     print(f"Set {prog_id} -> {command}")
-    print("Run 'py -m winpyfiles diagnose' to verify.")
+    print("Run 'py -m pydblclick.winpyfiles diagnose' to verify.")
 
 
 COMMANDS = {

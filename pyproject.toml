@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["pydblclick*", "winpyfiles*"]
+include = ["pydblclick*"]
 
 [project.optional-dependencies]
 dev = ["pytest"]

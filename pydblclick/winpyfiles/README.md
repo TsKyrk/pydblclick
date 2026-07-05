@@ -1,6 +1,9 @@
-# winpyfiles
+# pydblclick.winpyfiles
 
-Windows Python file association manager. A standalone utility to inspect, configure, backup, and restore the Windows registry entries that control how `.py` and `.pyw` files are opened on double-click.
+Windows Python file association manager — the subpackage of pydblclick that inspects,
+configures, backs up and restores the Windows registry entries controlling how `.py`
+and `.pyw` files are opened on double-click. Self-contained (stdlib only): it could be
+extracted as a standalone package if demand appears.
 
 ## Why this tool exists
 
@@ -18,7 +21,7 @@ winpyfiles makes this chain visible and configurable.
 ## CLI usage
 
 ```
-py -m winpyfiles <command> [options]
+py -m pydblclick.winpyfiles <command> [options]
 ```
 
 | Command | Description |
@@ -36,19 +39,19 @@ Options:
 ### Examples
 
 ```
-py -m winpyfiles diagnose
-py -m winpyfiles backup
-py -m winpyfiles backup C:\backups\py_assoc.json
-py -m winpyfiles restore winpyfiles_backup_20250101_120000.json --elevate
-py -m winpyfiles reset --elevate
-py -m winpyfiles set-command Python.File "\"C:\Windows\py.exe\" \"%1\" %*" --elevate
-py -m winpyfiles remove-msix
+py -m pydblclick.winpyfiles diagnose
+py -m pydblclick.winpyfiles backup
+py -m pydblclick.winpyfiles backup C:\backups\py_assoc.json
+py -m pydblclick.winpyfiles restore winpyfiles_backup_20250101_120000.json --elevate
+py -m pydblclick.winpyfiles reset --elevate
+py -m pydblclick.winpyfiles set-command Python.File "\"C:\Windows\py.exe\" \"%1\" %*" --elevate
+py -m pydblclick.winpyfiles remove-msix
 ```
 
 ## Python API
 
 ```python
-from winpyfiles import diagnose, find_py_exe, set_command, AssocDiagnosis
+from pydblclick.winpyfiles import diagnose, find_py_exe, set_command, AssocDiagnosis
 
 d = diagnose()
 for ext in d.extensions:
@@ -89,9 +92,9 @@ via the "Python Install Manager" from python.org) intercepts `.py`/`.pyw` double
 Windows App Model activation declared in `appxmanifest.xml`. This **bypasses all registry-based**
 ftype/assoc/shell\open\command settings.
 
-**Detection:** `py -m winpyfiles diagnose` shows a `[!!] MSIX Python Manager detected` warning.
+**Detection:** `py -m pydblclick.winpyfiles diagnose` shows a `[!!] MSIX Python Manager detected` warning.
 
-**Resolution:** Run `py -m winpyfiles remove-msix`, or uninstall "Python Manager" manually from
+**Resolution:** Run `py -m pydblclick.winpyfiles remove-msix`, or uninstall "Python Manager" manually from
 Windows Settings > Apps > Installed apps.
 
 > Note: the "Python Install Manager" from python.org is itself an MSIX package and does **not**
@@ -119,5 +122,5 @@ winpyfiles ships with pydblclick:
 
 ```
 pip install pydblclick
-py -m winpyfiles diagnose
+py -m pydblclick.winpyfiles diagnose
 ```

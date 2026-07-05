@@ -21,5 +21,5 @@ def require_admin() -> None:
     """Abort with a clear message if not running as admin."""
     if not is_admin():
         print("[!] This operation requires administrator rights.")
-        print("    Re-run as admin or use: py -m winpyfiles <command> --elevate")
+        print("    Re-run as admin or use: py -m pydblclick.winpyfiles <command> --elevate")
         sys.exit(1)
