@@ -117,10 +117,13 @@ def reveal_console_for_pyw(log_file=None):
             pass
 
 
-def showtraceback(script_path):
+def showtraceback(script_path, script_excepthook=None):
     """
     Displays the exception that just occurred, hiding the pydblclick/runpy
     internal frames so the traceback starts at the user's script.
+
+    script_excepthook: the excepthook installed by the script itself (None if
+    the script did not change sys.excepthook).
     """
     sys.last_type, sys.last_value, last_tb = ei = sys.exc_info()
     sys.last_traceback = last_tb
@@ -134,12 +137,14 @@ def showtraceback(script_path):
         # format_exception then prints the exception part only, which for a
         # SyntaxError still includes the file, line and caret indicator.
         lines = traceback.format_exception(ei[0], ei[1], tb)
-        if sys.excepthook is sys.__excepthook__:
-            print(''.join(lines))
+        if script_excepthook is not None:
+            # The *script* installed its own excepthook: let it take precedence
+            # over our print. (Comparing against sys.__excepthook__ is not
+            # enough: some environments replace sys.excepthook globally, which
+            # would silently send our traceback elsewhere.)
+            script_excepthook(ei[0], ei[1], tb)
         else:
-            # If someone has set sys.excepthook, we let that take precedence
-            # over our print
-            sys.excepthook(ei[0], ei[1], tb)
+            print(''.join(lines))
     finally:
         tb = last_tb = ei = None
 
@@ -243,6 +248,8 @@ def run_script(script_to_execute):
     # script_is_doubleclicked = True  # Uncomment this to simulate a double-clicked script even though you are using a console
 
     exit_code = 0
+    # Snapshot to detect an excepthook installed by the script itself
+    hook_before_script = sys.excepthook
 
     if "pythonw" in sys.executable:
         err_msg = "Error : pydblclick should never be running with pythonw.exe !\n" + str(sys.executable) + "\n" + str(sys.argv)
@@ -310,7 +317,8 @@ def run_script(script_to_execute):
                 globalsParameter = tb.tb_frame.f_globals
                 break
             tb = tb.tb_next
-        showtraceback(script_to_execute)
+        script_excepthook = sys.excepthook if sys.excepthook is not hook_before_script else None
+        showtraceback(script_to_execute, script_excepthook)
         print("This exception has ended the script before the end.")
 
     pause_decision = script_is_doubleclicked and pydblclick_customizations['must_pause_in_console'] and script_extension != ".pyw"

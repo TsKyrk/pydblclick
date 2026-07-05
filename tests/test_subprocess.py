@@ -168,8 +168,10 @@ def test_subprocess_console_closed_by_user_no_fallback_pause(tmp_path):
     (0xC000013A), the exact exit code Windows sets in that situation.
     """
     script = tmp_path / "window_closed.py"
+    # c_uint32 is required: passing the raw int lets ctypes coerce values
+    # above INT_MAX inconsistently across environments (seen on CI runners)
     script.write_text(
-        "import ctypes\nctypes.windll.kernel32.ExitProcess(0xC000013A)\n",
+        "import ctypes\nctypes.windll.kernel32.ExitProcess(ctypes.c_uint32(0xC000013A))\n",
         encoding="utf-8",
     )
 

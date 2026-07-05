@@ -117,6 +117,36 @@ def test_traceback_excludes_pydblclick_frame(tmp_path, capsys):
     assert "_child.py" not in out
 
 
+def test_traceback_shown_even_if_environment_replaced_excepthook(tmp_path, capsys, monkeypatch):
+    """The traceback is printed even when sys.excepthook was replaced globally
+    (e.g. by the environment, not by the script) -- seen on CI runners where
+    the old 'is sys.__excepthook__' check silently sent tracebacks elsewhere.
+    """
+    monkeypatch.setattr("sys.excepthook", lambda *a: None)
+    script = tmp_path / "hooked_env.py"
+    script.write_text("raise ValueError('env hook')", encoding="utf-8")
+
+    run_script(str(script))
+
+    assert "ValueError" in capsys.readouterr().out
+
+
+def test_script_installed_excepthook_takes_precedence(tmp_path, capsys):
+    """An excepthook installed by the script itself is honored."""
+    script = tmp_path / "hooked_script.py"
+    script.write_text(
+        "import sys\n"
+        "sys.excepthook = lambda t, v, tb: print('custom hook saw', t.__name__)\n"
+        "raise ValueError('script hook')\n",
+        encoding="utf-8",
+    )
+
+    run_script(str(script))
+
+    out = capsys.readouterr().out
+    assert "custom hook saw ValueError" in out
+
+
 def test_syntax_error_shows_location(tmp_path, capsys):
     """A SyntaxError (no frame in the script) still shows file and line."""
     script = tmp_path / "e002_syntax.py"

@@ -13,7 +13,14 @@ MSIX Python Manager compatibility:
   Only the ProgID + UserChoice registration ('pydblclick register') works with
   MSIX; the shebang approach does not. See MSIX_COMPATIBILITY.md for the matrix.
 """
+import os
+
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    bool(os.environ.get("CI")),
+    reason="checks THIS machine's file associations -- meaningless on a CI runner",
+)
 
 try:
     from pydblclick.winpyfiles._assoc import diagnose, find_msix_python_package, find_python_appx_prog_ids
