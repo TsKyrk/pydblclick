@@ -29,7 +29,7 @@ import sys
 import tempfile
 
 from pydblclick import _script_meta
-from pydblclick._child import STATUS_HANDLED, User32, ensure_console, have_console
+from pydblclick._child import STATUS_HANDLED, User32, ensure_console, have_console, signed32
 
 UV_INSTALL_URL = "https://docs.astral.sh/uv/getting-started/installation/"
 
@@ -148,7 +148,7 @@ def main():
     # Per-script opt-out: run with plain Python, no wrapping, no pause
     if _script_meta.has_opt_out(_script_meta.read_script_text(script)):
         result = subprocess.run([_plain_python_for(script), script] + script_args)
-        return result.returncode
+        return signed32(result.returncode)
 
     # The status file is how the child tells us "I already paused (or decided
     # a pause was not needed)". It survives any way the child may die.
@@ -201,8 +201,8 @@ def main():
     if not child_handled and not user_closed_console and _script_is_doubleclicked():
         _fallback_pause(result.returncode)
 
-    return result.returncode
+    return signed32(result.returncode)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(signed32(main()))

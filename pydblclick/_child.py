@@ -219,6 +219,18 @@ def display_pause_prompt_and_menu():
     return must_run_script_again
 
 
+def signed32(code):
+    """Convert a Windows exit code to the signed 32-bit range for sys.exit().
+
+    Codes like STATUS_CONTROL_C_EXIT (0xC000013A) exceed INT_MAX; before
+    Python 3.14, sys.exit() overflows on them and the process exits with -1.
+    Two's complement preserves the value seen by GetExitCodeProcess.
+    """
+    if isinstance(code, int) and code >= 2 ** 31:
+        return code - 2 ** 32
+    return code
+
+
 def _normalize_exit_code(system_exit):
     """Turn a SystemExit into a process exit code, like the interpreter does."""
     code_value = system_exit.code
@@ -376,11 +388,11 @@ def main():
             except StdinUnavailable:
                 # The script closed stdin (exit()/quit() does that). No status
                 # marker is written: the parent supervisor will pause instead.
-                return exit_code
+                return signed32(exit_code)
 
     _write_status(status_file, STATUS_HANDLED)
-    return exit_code
+    return signed32(exit_code)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(signed32(main()))
