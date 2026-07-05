@@ -76,7 +76,7 @@ Python).
 ### Phase 4 — Distribution
 - [x] Rewrite the README around the new flow: install → `pydblclick register` →
       double-click any script (PEP 723 aware)
-- [ ] Publish to PyPI
+- [x] Publish to PyPI (0.2.0, 2026-07-05)
 
 ## Non-goals
 

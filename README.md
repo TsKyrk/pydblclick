@@ -37,7 +37,7 @@ your colleagues, or anyone you share a one-file script with:
 # Installation
 
 ```commandline
-pip install <path-to-this-repo>       (PyPI package coming soon)
+pip install pydblclick
 pydblclick register
 ```
 
