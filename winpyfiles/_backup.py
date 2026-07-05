@@ -12,8 +12,13 @@ _BACKUP_VERSION = 1
 
 
 def _default_backup_path() -> str:
+    # A fixed per-user location: 'pydblclick register' can be run from any
+    # directory without littering it with backup files.
+    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+    backup_dir = os.path.join(base, "pydblclick", "backups")
+    os.makedirs(backup_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return os.path.join(os.getcwd(), f"winpyfiles_backup_{timestamp}.json")
+    return os.path.join(backup_dir, f"winpyfiles_backup_{timestamp}.json")
 
 
 def backup(path: Optional[str] = None) -> str:

@@ -115,8 +115,7 @@ batch files and tests).
 ## Custom icons
 
 Scripts launched via pydblclick show the registered Python icon. For a custom icon,
-create a shortcut to the script and set the icon in its properties (see the example in
-[examples](examples/)).
+create a shortcut to the script (ALT+drag & drop) and set the icon in its properties.
 
 # How it works
 
