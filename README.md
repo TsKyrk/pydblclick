@@ -99,6 +99,17 @@ the dependencies in an ephemeral environment, and pydblclick keeps the window op
 its usual menu. This is a standard format — the same file also runs with `uv run` alone
 on any platform. Use `uv add --script myscript.py requests` to maintain the block.
 
+### Distributing to people who don't have pydblclick (yet)
+
+Your script cannot assume the recipient installed anything. Paste the optional
+**nudge block** from
+[examples/12_distributable_with_nudge.py](https://github.com/TsKyrk/pydblclick/blob/main/examples/12_distributable_with_nudge.py)
+at the top of the file: ~20 self-contained stdlib lines that detect a double-click
+without pydblclick and, only in that case, keep the window open (readable errors) and
+print how to install pydblclick. Everywhere else the block is inert: in a console the
+script behaves as plain Python, and under pydblclick the full experience takes over.
+Recipients get a working script either way — and a pointer to the better experience.
+
 ## Advanced usage
 
 Optional, per-script features for seasoned users — plain scripts need none of this.

@@ -19,6 +19,7 @@ Double-click each file and observe:
 | `09_WindowedHelloWorld.pyw` | Windowed script: no console at all |
 | `10_WindowedHelloWorld_with_exception.pyw` | Windowed script that crashes: a console appears with the output and traceback instead of dying silently |
 | `11_cmd_calls_a_script.bat` | A batch/CLI caller: no pause (it would break automation), exit code propagated |
+| `12_distributable_with_nudge.py` | Copy-paste header for scripts you distribute: degraded-but-working double-click without pydblclick + install suggestion; inert everywhere else |
 
 Bonus trick — custom icons: create a Windows shortcut to a script (ALT+drag & drop)
 and set a custom icon in its properties. Double-clicking the shortcut runs the script
