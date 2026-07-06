@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-07)
 
 - `import pydblclick` becomes an optional one-line directive for distributed
   scripts: double-clicked while pip-installed but not registered, the import
