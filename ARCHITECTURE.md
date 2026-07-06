@@ -106,6 +106,13 @@ it is hidden/shown with `ShowWindow` instead.
   pause unless an exception occurs. The dict is exposed through `builtins`, not
   injected into the script's globals.
 - `# pydblclick: off` — full opt-out, read by the parent before launching.
+- `import pydblclick` — optional directive for distributed scripts. On import,
+  `pydblclick/__init__.py` activates a minimal fallback (excepthook + atexit pause,
+  hint about `register`) but only when *all* of these hold: Windows, double-click
+  context (interactive stdin required unless simulated), not already wrapped (no
+  `builtins` marker), and imported by a user file — pydblclick's own `-m` startup
+  shows nothing but interpreter machinery in the import stack, so it never
+  self-activates.
 
 ## The winpyfiles subpackage
 

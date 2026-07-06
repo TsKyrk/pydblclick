@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `import pydblclick` becomes an optional one-line directive for distributed
+  scripts: double-clicked while pip-installed but not registered, the import
+  activates a minimal fallback (readable errors + pause + hint about
+  `pydblclick register`). Inert in consoles, under pydblclick, in pydblclick's
+  own processes, in piped/CI contexts and on non-Windows platforms.
+
 ## 0.2.3 (2026-07)
 
 Documentation-only release.

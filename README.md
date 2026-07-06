@@ -99,6 +99,30 @@ the dependencies in an ephemeral environment, and pydblclick keeps the window op
 its usual menu. This is a standard format — the same file also runs with `uv run` alone
 on any platform. Use `uv add --script myscript.py requests` to maintain the block.
 
+### Distributing to people who may not have pydblclick
+
+One optional line makes a script distribution-friendly:
+
+```python
+import pydblclick  # optional: pip install pydblclick -- or delete this line
+```
+
+- **pydblclick registered**: the line is inert — full experience.
+- **pydblclick pip-installed but not registered**: the import activates a minimal
+  fallback on double-click — readable errors, a pause, and a hint about
+  `pydblclick register`. In a console it does strictly nothing.
+- **Machine without pydblclick**: the recipient gets an `ImportError`, reads the
+  comment, and chooses — install pydblclick or delete the line.
+
+If you want even the bare machine to see a friendly message instead of an
+`ImportError`, use this 3-line variant:
+
+```python
+try: import pydblclick  # optional: pip install pydblclick -- or delete these 3 lines
+except ImportError:
+    import os; "PROMPT" in os.environ or input("Tip: 'pip install pydblclick' makes this script double-click friendly. (Enter to run anyway)")
+```
+
 ## Advanced usage
 
 Optional, per-script features for seasoned users — plain scripts need none of this.
