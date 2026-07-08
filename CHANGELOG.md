@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 (2026-07)
+
+- The `import pydblclick` directive now delivers the **full** experience, not a
+  minimal one. When a script is double-clicked while pydblclick is pip-installed
+  but not registered, the import re-launches the script through
+  `python -m pydblclick` and exits with its code — so a single first-line import
+  gives the pause menu, restart, clean tracebacks and PEP 723 dependency
+  resolution, with no registry change. Keeping the import first also means the
+  relaunch happens before any not-yet-installed PEP 723 dependency would fail.
+- Recursion and self-activation remain impossible (the `builtins` marker and the
+  import-stack guard, both already tested). If the relaunch cannot start — or if
+  `PYDBLCLICK_NO_BOOTSTRAP` is set — the previous minimal in-process fallback
+  (readable errors + pause + `register` hint) takes over instead.
+- This positions two adoption paths: **per-script** (the directive, for
+  distribution) and **machine-wide** (`pydblclick register`).
+
 ## 0.3.0 (2026-07)
 
 - `import pydblclick` becomes an optional one-line directive for distributed

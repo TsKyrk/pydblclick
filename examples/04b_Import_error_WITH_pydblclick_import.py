@@ -1,3 +1,4 @@
+import pydblclick  # optional: pip install pydblclick -- or delete this line
 import a_package_you_dont_have  # ModuleNotFoundError stays readable
 print("hello world")
 # Tip: press <c> at the pause menu to open a cmd and pip install it --

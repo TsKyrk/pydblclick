@@ -106,13 +106,26 @@ it is hidden/shown with `ShowWindow` instead.
   pause unless an exception occurs. The dict is exposed through `builtins`, not
   injected into the script's globals.
 - `# pydblclick: off` — full opt-out, read by the parent before launching.
-- `import pydblclick` — optional directive for distributed scripts. On import,
-  `pydblclick/__init__.py` activates a minimal fallback (excepthook + atexit pause,
-  hint about `register`) but only when *all* of these hold: Windows, double-click
-  context (interactive stdin required unless simulated), not already wrapped (no
-  `builtins` marker), and imported by a user file — pydblclick's own `-m` startup
-  shows nothing but interpreter machinery in the import stack, so it never
-  self-activates.
+- `import pydblclick` — optional first-line directive for distributed scripts.
+  On import, `pydblclick/__init__.py` acts only when *all* of these hold: Windows,
+  double-click context (interactive stdin required unless simulated), not already
+  wrapped (no `builtins.pydblclick_customizations` marker), and imported by a user
+  file. When they do, it **re-launches the script through the real pydblclick**
+  (`python -m pydblclick <script> [args]` with the current interpreter, SIGINT
+  ignored so the child chain owns Ctrl+C) and exits with the child's code
+  (`_signed32`). One import line thus yields the full experience — menu, restart,
+  clean tracebacks, PEP 723/uv — with no registry change. Because the directive
+  is the first line, nothing in the original process has run yet, so raising
+  `SystemExit` there is clean and nothing runs twice; and the relaunch happens
+  before any not-yet-installed PEP 723 dependency import could fail.
+  Recursion is impossible: the relaunched child sets the `builtins` marker before
+  running the script (so its second `import pydblclick` is inert), and pydblclick's
+  own `-m` startup shows nothing but interpreter machinery in the import stack, so
+  it never self-activates. If the relaunch cannot even start — or if
+  `PYDBLCLICK_NO_BOOTSTRAP` is set — a minimal in-process fallback takes over
+  instead (excepthook + atexit pause, hint about `register`). `.pyw` double-clicks
+  run under pythonw with no interactive stdin, so the directive stays inert there;
+  console-less `.pyw` remains a `register`-only feature.
 
 ## The winpyfiles subpackage
 

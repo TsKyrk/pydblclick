@@ -1,3 +1,4 @@
+import pydblclick  # optional: pip install pydblclick -- or delete this line
 # /// script
 # requires-python = ">=3.9"
 # dependencies = [
