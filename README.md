@@ -119,9 +119,11 @@ import pydblclick  # optional: pip install pydblclick -- or delete this line
 - **pydblclick pip-installed but not registered**: on double-click the import
   re-launches the script through pydblclick, so the recipient gets the *full*
   experience — the pause menu, clean tracebacks, and PEP 723 dependency
-  resolution — from that single line. In a console it does strictly nothing.
-  (Keeping the import first means nothing above it runs twice, and the relaunch
-  happens before any not-yet-installed PEP 723 dependency would fail to import.)
+  resolution — from that single line. This works for `.pyw` too: a crashing
+  windowed script shows a console with its traceback instead of dying silently.
+  In a console it does strictly nothing. (Keeping the import first means nothing
+  above it runs twice, and the relaunch happens before any not-yet-installed
+  PEP 723 dependency would fail to import.)
 - **Machine without pydblclick**: the recipient gets an `ImportError`, reads the
   comment, and chooses — install pydblclick or delete the line.
 
@@ -218,9 +220,6 @@ interference and tells you what to fix. Details in
   provision Python itself)
 - Offer to install uv when a PEP 723 script is double-clicked and uv is missing
 - Context menu items "Run with pydblclick" / "Bypass pydblclick"
-- Make the `import pydblclick` directive work for `.pyw` scripts too (currently
-  `register`-only) — see
-  [docs/pyw-import-directive-bootstrap.md](https://github.com/TsKyrk/pydblclick/blob/main/docs/pyw-import-directive-bootstrap.md)
 
 # History
 

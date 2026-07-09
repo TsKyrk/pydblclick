@@ -108,9 +108,13 @@ it is hidden/shown with `ShowWindow` instead.
 - `# pydblclick: off` — full opt-out, read by the parent before launching.
 - `import pydblclick` — optional first-line directive for distributed scripts.
   On import, `pydblclick/__init__.py` acts only when *all* of these hold: Windows,
-  double-click context (interactive stdin required unless simulated), not already
-  wrapped (no `builtins.pydblclick_customizations` marker), and imported by a user
-  file. When they do, it **re-launches the script through the real pydblclick**
+  double-click context, not already wrapped (no `builtins.pydblclick_customizations`
+  marker), and imported by a user file. Double-click is detected by an interactive
+  stdin for `.py`; a `.pyw` has no console/stdin, so it is detected instead by an
+  **Explorer launcher** (`_launched_by_explorer()` walks the process ancestry and
+  accepts only if `explorer.exe` is reached before any shell/console host, which
+  keeps terminal, automation and CI runs inert). When they do, it **re-launches
+  the script through the real pydblclick**
   (`python -m pydblclick <script> [args]` with the current interpreter, SIGINT
   ignored so the child chain owns Ctrl+C) and exits with the child's code
   (`_signed32`). One import line thus yields the full experience — menu, restart,
@@ -123,9 +127,11 @@ it is hidden/shown with `ShowWindow` instead.
   own `-m` startup shows nothing but interpreter machinery in the import stack, so
   it never self-activates. If the relaunch cannot even start — or if
   `PYDBLCLICK_NO_BOOTSTRAP` is set — a minimal in-process fallback takes over
-  instead (excepthook + atexit pause, hint about `register`). `.pyw` double-clicks
-  run under pythonw with no interactive stdin, so the directive stays inert there;
-  console-less `.pyw` remains a `register`-only feature.
+  instead (excepthook + atexit pause, hint about `register`). For a `.pyw` the
+  current interpreter is pythonw, so the relaunch goes down the windowless path
+  (DETACHED child, log capture) and a console appears only if the script raises —
+  the same behavior as a registered `.pyw`, now available from the one-line
+  directive.
 
 ## The winpyfiles subpackage
 

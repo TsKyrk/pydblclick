@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.0 (2026-07)
+
+- The `import pydblclick` directive now works for **`.pyw`** scripts too.
+  A double-clicked `.pyw` is detected by its Explorer launcher (pythonw has no
+  console/stdin to key on) and relaunched **windowless** through pydblclick, so
+  a crashing `.pyw` shows a console with its output and traceback instead of
+  dying silently — previously a `register`-only capability. The relaunch reuses
+  the existing windowless pipeline (DETACHED child, log capture, `AllocConsole()`
+  on exception).
+- Safe by construction: the `.pyw` double-click is recognized only when an
+  Explorer ancestor is reached before any shell/console host. Runs from a
+  terminal, from automation (services / scheduled tasks) and from CI reach a
+  shell (or nothing) first and stay **inert**.
+
 ## 0.4.0 (2026-07)
 
 - The `import pydblclick` directive now delivers the **full** experience, not a

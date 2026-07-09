@@ -11,6 +11,8 @@ import pathlib
 import subprocess
 import sys
 
+import pytest
+
 REPO_ROOT = str(pathlib.Path(__file__).resolve().parent.parent)
 
 SCRIPT_OK = (
@@ -117,6 +119,70 @@ def test_optout_directive_steps_aside_no_relaunch(tmp_path):
     assert MINIMAL_MARKER not in result.stdout
     assert FULL_MENU_MARKER not in result.stdout  # stepped aside: no pause menu
     assert result.returncode == 0
+
+
+def test_pyw_directive_inert_without_explorer(tmp_path):
+    """A `.pyw` with the directive, run WITHOUT an Explorer double-click (here a
+    test runner, i.e. a shell ancestry) stays inert: `.pyw` double-click
+    detection keys on an Explorer launcher, which is absent, so pydblclick does
+    not activate and the script runs as plain Python."""
+    script = tmp_path / "directive.pyw"
+    script.write_text(
+        "import pydblclick  # optional directive\n"
+        'print("pyw plain")\n',
+        encoding="utf-8",
+    )
+
+    env = {**os.environ, "PYTHONPATH": REPO_ROOT}
+    env.pop("PROMPT", None)
+    env.pop("pydblclick_simulate_doubleclick", None)
+    env.pop("pyexewrap_simulate_doubleclick", None)
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        input="", capture_output=True, text=True, env=env, timeout=30,
+    )
+
+    assert "pyw plain" in result.stdout
+    assert MINIMAL_MARKER not in result.stdout
+    assert FULL_MENU_MARKER not in result.stdout
+    assert result.returncode == 0
+
+
+def test_pyw_directive_relaunches_windowless_on_crash(tmp_path):
+    """A double-clicked `.pyw` with the directive that crashes must relaunch
+    through pydblclick and block at the pause menu on a freshly created console.
+
+    Pops a real console window, so gated behind PYDBLCLICK_UI_TESTS. Simulated
+    double-click bypasses the Explorer check; the interpreter is pythonw so the
+    relaunch goes windowless (a console appears only because of the exception).
+    TimeoutExpired proves the relaunched child is alive, waiting at the menu."""
+    if not os.environ.get("PYDBLCLICK_UI_TESTS"):
+        pytest.skip("UI test (pops a console window); set PYDBLCLICK_UI_TESTS=1 to run")
+
+    script = tmp_path / "directive_crash.pyw"
+    script.write_text(
+        "import pydblclick  # optional directive\n"
+        'print("before crash")\n'
+        "raise ValueError('pyw directive crash')\n",
+        encoding="utf-8",
+    )
+
+    pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+    assert os.path.exists(pythonw), "pythonw.exe not found next to python.exe"
+    env = {**os.environ, "PYTHONPATH": REPO_ROOT,
+           "pydblclick_simulate_doubleclick": "1"}
+    env.pop("PROMPT", None)
+    proc = subprocess.Popen(
+        [pythonw, str(script)],
+        env=env,
+        creationflags=subprocess.DETACHED_PROCESS,
+    )
+    try:
+        with pytest.raises(subprocess.TimeoutExpired):
+            proc.wait(timeout=15)  # still alive -> it relaunched and is at the menu
+    finally:
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                       capture_output=True)
 
 
 def test_no_bootstrap_env_forces_minimal(tmp_path):

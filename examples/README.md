@@ -1,13 +1,12 @@
 # pydblclick examples
 
-## Unregistered usage
-Only the scripts enhanced with a "import pydblclick" 1st line will benefit from the added features
+You may want to run these examples twice. Once for each use case:
 
-## Registered usage
+- **Unregistered usage** : Only the scripts starting with a "import pydblclick" on their 1st line will benefit from the added features of the pydblclick tool.
 
-Prerequisite: `pip install pydblclick` then `pydblclick register` (see the main
-[README](../README.md)). Once registered, **every** `.py`/`.pyw` file is wrapped on
-double-click — nothing to add to the scripts themselves.
+- **Registered usage** : `pip install pydblclick` then `pydblclick register` (see the main
+[README](../README.md)). Once registered, `.py`/`.pyw` files can be associated with the pydblclick tool
+instead of your usual python interpreter so that double-clicks on any python script will always trigger the tool — no import line required in the scripts themselves.
 
 ## Comparison table
 
@@ -19,7 +18,7 @@ Double-click each file and observe:
 | `03_Syntax_error.py` | ❌ The console flashes away | ❌ The console flashes away | ✅ Even a script that cannot compile <br>shows a readable error <br>a title is set |
 | `04_Import_error.py` | ❌ The console flashes away | ✅ Missing module: read the error, <br>`<c>` opens a cmd to pip-install <br>`<r>` to restart after install <br>a title is set | ✅ Same |
 | `10_WindowedHelloWorld.pyw` | ✅ Windowed execution | ✅ No impact | ✅ No impact |
-| `11_HelloWorld.pyw_with_exception.pyw` | ❌ The window flashes away | ❌ The window flashes away | ✅ A console appears with the output and <br>traceback instead of dying silently |
+| `11_HelloWorld.pyw_with_exception.pyw` | ❌ The window flashes away | ✅ A console appears with the output and <br>traceback instead of dying silently | ✅ Same |
 | `12_cmd_calls_a_pydblclick_enhanced_script.bat` | ✅ No impact | ✅ No impact | ✅ No impact | ✅ No impact |
 | `20a_NoPause_option.py` | - | ✅ no pause when all goes well... | ✅ Same |
 | `20b_NoPause_option_but_exception.py` | - | ✅ An exception still forces the pause | ✅ Same |
