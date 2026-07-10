@@ -341,8 +341,34 @@ PEP723_SCRIPT = (
 
 
 def _uv_available():
-    import shutil
-    return os.environ.get("PYDBLCLICK_UV") or shutil.which("uv")
+    # Use the real detector so the skip logic stays in sync with pydblclick
+    # (which also finds a pip-installed uv in the interpreter's Scripts dir).
+    from pydblclick.__main__ import _find_uv
+    return _find_uv()
+
+
+def test_find_uv_prefers_env_override(monkeypatch, tmp_path):
+    """PYDBLCLICK_UV wins over everything else."""
+    from pydblclick.__main__ import _find_uv
+    monkeypatch.setenv("PYDBLCLICK_UV", r"C:\custom\uv.exe")
+    assert _find_uv() == r"C:\custom\uv.exe"
+
+
+def test_find_uv_falls_back_to_interpreter_scripts_dir(monkeypatch, tmp_path):
+    """When uv is not on PATH, it is still found in the interpreter's Scripts
+    dir -- the MSIX Python Manager case (pip Scripts dirs are off PATH)."""
+    import sysconfig
+    import pydblclick.__main__ as m
+
+    fake_uv = tmp_path / ("uv.exe" if os.name == "nt" else "uv")
+    fake_uv.write_text("", encoding="utf-8")
+
+    monkeypatch.delenv("PYDBLCLICK_UV", raising=False)
+    monkeypatch.setattr(m.shutil, "which", lambda name: None)  # not on PATH
+    monkeypatch.setattr(sysconfig, "get_path",
+                        lambda name, *a, **k: str(tmp_path) if name == "scripts" else "")
+
+    assert m._find_uv() == str(fake_uv)
 
 
 def test_subprocess_pep723_without_uv_falls_back(tmp_path):

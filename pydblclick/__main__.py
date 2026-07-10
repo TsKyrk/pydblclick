@@ -95,8 +95,36 @@ def _plain_python_for(script):
 
 
 def _find_uv():
-    """Locate the uv executable (PYDBLCLICK_UV overrides PATH, for tests)."""
-    return os.environ.get("PYDBLCLICK_UV") or shutil.which("uv")
+    """Locate the uv executable.
+
+    Order: the PYDBLCLICK_UV override, then PATH (shutil.which), then the Scripts
+    directory of the running interpreter -- where `pip install uv` lands. That
+    last fallback matters under the MSIX Python Manager, which does not put pip
+    Scripts dirs on PATH, so an otherwise-installed uv is invisible to
+    shutil.which().
+    """
+    override = os.environ.get("PYDBLCLICK_UV")
+    if override:
+        return override
+    found = shutil.which("uv")
+    if found:
+        return found
+
+    import sysconfig
+    exe = "uv.exe" if os.name == "nt" else "uv"
+    user_scheme = "nt_user" if os.name == "nt" else "posix_user"
+    scripts_dirs = []
+    for args in ((), (user_scheme,)):  # this interpreter's Scripts, then --user
+        try:
+            scripts_dirs.append(sysconfig.get_path("scripts", *args))
+        except Exception:
+            pass
+    for scripts in scripts_dirs:
+        if scripts:
+            candidate = os.path.join(scripts, exe)
+            if os.path.isfile(candidate):
+                return candidate
+    return None
 
 
 def _build_child_command(script, script_args, env):

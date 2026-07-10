@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 (2026-07)
+
+- PEP 723 scripts now find uv when it was installed with `pip install uv`:
+  `_find_uv()` also looks in the running interpreter's Scripts directory (default
+  and `--user` schemes) after `PYDBLCLICK_UV` and PATH. This fixes the common
+  MSIX Python Manager case, where pip Scripts dirs are not on PATH so
+  `shutil.which("uv")` cannot see an otherwise-installed uv.
+
 ## 0.5.0 (2026-07)
 
 - The `import pydblclick` directive now works for **`.pyw`** scripts too.
