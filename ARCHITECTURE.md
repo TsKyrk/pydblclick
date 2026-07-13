@@ -21,7 +21,13 @@ Two ProgIDs are registered:
 | `.pyw` | `pydblclick.PywFile` | `"...\pythonw.exe" -m pydblclick "%1" %*` |
 
 The registered interpreter is the one that ran `pydblclick register` — by definition
-it can import pydblclick, so no PATH or PYTHONPATH setup is involved.
+it can import pydblclick, so no PATH or PYTHONPATH setup is involved. If that
+interpreter is later uninstalled or moved (a Python upgrade, say), double-click
+breaks silently since the registered command now points nowhere.
+`pydblclick diagnose` detects this (`winpyfiles._assoc.is_command_exe_missing()`
+checks the registered ProgID commands against the filesystem) and
+`pydblclick register` self-repairs it, reporting when it replaced a command whose
+interpreter no longer existed.
 
 ## Two-process design
 

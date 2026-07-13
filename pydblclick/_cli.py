@@ -14,9 +14,15 @@ import os
 import sys
 import winreg
 
-from pydblclick.winpyfiles import diagnose, find_py_exe, find_python_appx_prog_ids, set_command
+from pydblclick.winpyfiles import (
+    diagnose,
+    find_py_exe,
+    find_python_appx_prog_ids,
+    is_command_exe_missing,
+    set_command,
+)
 from pydblclick.winpyfiles._assoc import find_msix_python_package
-from pydblclick.winpyfiles._registry import HKCU, write_value, notify_shell_assoc_changed
+from pydblclick.winpyfiles._registry import HKCU, read_value, write_value, notify_shell_assoc_changed
 from pydblclick.winpyfiles._elevation import is_admin
 from pydblclick.winpyfiles._backup import backup
 
@@ -101,12 +107,16 @@ def _register_prog_ids():
     for ext in EXTENSIONS:
         prog_id = _prog_id_for(ext)
         command = _handler_command(ext)
+        previous_command = read_value(HKCU, "Software\\Classes\\" + prog_id + "\\shell\\open\\command")
+        repaired = is_command_exe_missing(previous_command)
         write_value(HKCU, "Software\\Classes\\" + prog_id, APP_DISPLAY_NAME)
         write_value(HKCU, "Software\\Classes\\" + prog_id + "\\DefaultIcon", icon)
         write_value(HKCU, "Software\\Classes\\" + prog_id + "\\shell\\open\\command", command)
         with winreg.CreateKeyEx(HKCU, "Software\\Classes\\" + prog_id + "\\shell\\open",
                                 access=winreg.KEY_WRITE) as k:
             winreg.SetValueEx(k, "FriendlyAppName", 0, winreg.REG_SZ, APP_DISPLAY_NAME)
+        if repaired:
+            print("  [i] " + prog_id + ": previous registration pointed to a missing interpreter, repaired")
 
     # "Open with" dialog application entry (console command covers both types)
     command_py = _handler_command(".py")

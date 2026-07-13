@@ -220,6 +220,37 @@ def find_python_appx_prog_ids() -> Dict[str, str]:
     return result
 
 
+def extract_command_exe(command: Optional[str]) -> Optional[str]:
+    """Extract the executable path from a shell\\open\\command string.
+
+    Handles the two shapes a registry command can take:
+      - quoted:   '"C:\\Path\\python.exe" "%1" %*'  -> C:\\Path\\python.exe
+      - unquoted: 'C:\\Path\\python.exe "%1" %*'     -> C:\\Path\\python.exe
+
+    Pure string parsing, no filesystem access. Returns None for an empty or
+    missing command.
+    """
+    if not command:
+        return None
+    command = command.strip()
+    if command.startswith('"'):
+        end = command.find('"', 1)
+        return command[1:end] if end != -1 else command[1:]
+    return command.split(" ", 1)[0]
+
+
+def is_command_exe_missing(command: Optional[str]) -> bool:
+    """True if the command's executable path is resolvable but no longer
+    exists on disk (interpreter uninstalled/moved since registration).
+
+    False for an empty/unconfigured command (that is "not configured", a
+    different condition from "configured but missing") and for a command
+    whose executable path cannot be extracted.
+    """
+    exe = extract_command_exe(command)
+    return bool(exe) and not os.path.isfile(exe)
+
+
 def set_command(prog_id: str, command: str, hive: int = HKLM) -> None:
     """Write the shell open command for a ProgID into the given registry hive.
 

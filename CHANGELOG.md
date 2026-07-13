@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `pydblclick diagnose` now detects a registered ProgID whose interpreter no
+  longer exists on disk (uninstalled or moved since `register` ran), which
+  otherwise breaks double-click silently. `pydblclick register` self-repairs
+  it and reports when it replaced a stale command. New pure helpers in
+  `pydblclick.winpyfiles`: `extract_command_exe()`, `is_command_exe_missing()`.
 - Hardened the pause menu against noisy stdin: input is now normalized
   (BOM stripped, whitespace trimmed) before dispatch, so a BOM-prefixed line
   (what PowerShell prepends to piped stdin) is treated as Enter instead of an

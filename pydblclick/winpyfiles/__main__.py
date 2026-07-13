@@ -1,7 +1,14 @@
 """CLI entry point: python -m pydblclick.winpyfiles [command]"""
 import sys
 
-from ._assoc import diagnose, find_py_exe, find_msix_python_package, set_command
+from ._assoc import (
+    diagnose,
+    extract_command_exe,
+    find_py_exe,
+    find_msix_python_package,
+    is_command_exe_missing,
+    set_command,
+)
 from ._backup import backup, restore
 from ._elevation import is_admin, elevate_and_rerun
 
@@ -79,6 +86,23 @@ Windows reads settings from registry locations, in priority order:
     }
     _bda_active = bool(_bda_user_choices)
 
+    missing_interpreter_warnings = []
+    for prog_id in _PYDBLCLICK_PROG_IDS:
+        info = d.prog_ids.get(prog_id)
+        if not info or not info.command_effective:
+            continue
+        if is_command_exe_missing(info.command_effective):
+            exe = extract_command_exe(info.command_effective)
+            missing_interpreter_warnings.append(
+                f"{prog_id}: registered interpreter no longer exists -- {exe}"
+            )
+    if missing_interpreter_warnings:
+        print("--- Registered interpreter check ---\n")
+        for w in missing_interpreter_warnings:
+            print(f"  [!!] {w}")
+        print("       Remediation: run 'pydblclick register' from a valid Python install.")
+        print()
+
     print("--- MSIX AppX Handlers (Windows 10/11) ---\n")
     if d.msix_package:
         print(f"  Package detected : {d.msix_package}")
@@ -119,7 +143,7 @@ Windows reads settings from registry locations, in priority order:
     print()
 
     print("--- Summary ---\n")
-    warnings = []
+    warnings = list(missing_interpreter_warnings)
     for ext in d.extensions:
         # For Explorer double-clicks: UserChoice wins if set.
         effective_pid = ext.user_choice or ext.prog_id_effective
