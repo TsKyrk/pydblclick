@@ -58,6 +58,53 @@ def test_pause_in_doubleclick_mode(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Pause menu hardening
+# ---------------------------------------------------------------------------
+
+def _fake_console_input(answers):
+    """A stand-in for input() that mimics its real behavior of writing the
+    prompt to stdout before reading, so tests can assert on print counts."""
+    it = iter(answers)
+
+    def _input(prompt=""):
+        print(prompt, end="")
+        return next(it)
+
+    return _input
+
+
+def test_pause_menu_unknown_choice_gives_feedback(monkeypatch, capsys):
+    """An unrecognized choice prints an explicit message before re-looping,
+    instead of silently reprinting the prompt (ROADMAP_HARDENING.md item 5)."""
+    from pydblclick._child import display_pause_prompt_and_menu
+
+    monkeypatch.setattr("builtins.input", _fake_console_input(["zzz", ""]))
+
+    must_run_again = display_pause_prompt_and_menu()
+
+    out = capsys.readouterr().out
+    assert "Unknown option." in out
+    assert must_run_again is False
+
+
+def test_pause_menu_normalizes_bom_prefixed_choice(monkeypatch, capsys):
+    """A BOM-prefixed choice (what PowerShell prepends to piped stdin) is
+    normalized to empty and treated as Enter -- a single print, no "Unknown
+    option." -- instead of a stray keystroke that reprints the menu
+    (docs/pause-menu-double-print.md)."""
+    from pydblclick._child import display_pause_prompt_and_menu
+
+    monkeypatch.setattr("builtins.input", _fake_console_input(["﻿"]))
+
+    must_run_again = display_pause_prompt_and_menu()
+
+    out = capsys.readouterr().out
+    assert out.count("Press <Enter> to Quit.") == 1
+    assert "Unknown option." not in out
+    assert must_run_again is False
+
+
+# ---------------------------------------------------------------------------
 # E001 — imports accessible inside functions
 # ---------------------------------------------------------------------------
 

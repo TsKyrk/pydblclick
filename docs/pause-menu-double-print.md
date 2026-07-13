@@ -76,16 +76,19 @@ Verified — the menu prints exactly once in every real scenario:
 
 Only PowerShell's `|` (which BOM-prefixes stdin) produces the double print.
 
-## Optional hardening (low priority)
+## Fixed in Unreleased (post-0.5.1)
 
-If we ever want the menu to be robust even against a BOM-prefixed or otherwise
-noisy stdin, the loop could normalize the input before dispatching, e.g.:
-
-```python
-wait = input(...).strip().lstrip("﻿")
-```
-
-and/or give explicit feedback on an unrecognized choice instead of silently
-re-printing the prompt (add an `else: print("Unknown option, try again.")`).
-Neither is required for correct behavior on a real double-click; treat as a
-nicety, not a fix.
+`display_pause_prompt_and_menu()` in `pydblclick/_child.py` now normalizes the
+input right after a successful `input()` call. Depending on the child's stdin
+encoding, the BOM's 3 bytes surface either as the single codepoint U+FEFF
+(utf-8) or as 3 mis-decoded Latin-1 characters `"\xef\xbb\xbf"` (non-utf-8
+codepages, e.g. the default `cp1252` locale used when stdin is a plain pipe
+rather than a real console) -- both are stripped, so a BOM-prefixed line
+normalizes to `""` and is treated as Enter instead of an unrecognized
+keystroke. A genuinely unrecognized choice now also prints `"Unknown
+option."` before re-looping, instead of silently reprinting the menu. The single-print behavior on a real double-click and on normal OS pipes
+is unchanged (still asserted by
+`tests/test_import_fallback.py::test_import_inert_under_pydblclick`); see
+`tests/test_pydblclick.py::test_pause_menu_normalizes_bom_prefixed_choice` and
+`tests/test_subprocess.py::test_pause_menu_single_print_with_bom_prefixed_stdin`
+for the BOM case specifically.

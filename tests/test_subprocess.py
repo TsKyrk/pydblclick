@@ -40,6 +40,28 @@ def _run(script_path, stdin_input="\n", extra_env=None):
 # Basic execution
 # ---------------------------------------------------------------------------
 
+def test_pause_menu_single_print_with_bom_prefixed_stdin(tmp_path):
+    """PowerShell prefixes stdin it pipes to a native process with a UTF-8 BOM
+    (docs/pause-menu-double-print.md): undecoded, that BOM used to read as a
+    stray unrecognized keystroke and print the menu a second time. Normalizing
+    the input before dispatch must keep this to a single print."""
+    script = tmp_path / "hello.py"
+    script.write_text('print("hello world")\n', encoding="utf-8")
+
+    env = {**os.environ, "pydblclick_simulate_doubleclick": "1"}
+    env.pop("PROMPT", None)
+    result = subprocess.run(
+        [sys.executable, "-m", "pydblclick", str(script)],
+        input=b"\xef\xbb\xbf\n",
+        capture_output=True,
+        env=env,
+    )
+
+    out = result.stdout.decode("utf-8", errors="replace")
+    assert out.count("Press <Enter> to Quit.") == 1
+    assert "Unknown option." not in out
+    assert result.returncode == 0
+
 def test_subprocess_output_and_pause_prompt(tmp_path):
     """Script output appears and the pause prompt is shown on double-click."""
     script = tmp_path / "hello.py"

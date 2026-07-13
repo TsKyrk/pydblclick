@@ -170,6 +170,15 @@ def display_pause_prompt_and_menu():
                 raise StdinUnavailable()
             except:
                 print(traceback.format_exc())  # Unexpected exception
+            else:
+                # Normalize noisy input: PowerShell prefixes stdin it pipes to
+                # a native process with a UTF-8 BOM, which would otherwise read
+                # as a stray unrecognized keystroke and print this prompt twice
+                # (see docs/pause-menu-double-print.md). Depending on the
+                # child's stdin encoding, those 3 bytes surface either as the
+                # single codepoint U+FEFF (utf-8) or as 3 mis-decoded Latin-1
+                # characters "\xef\xbb\xbf" (non-utf-8 codepages) -- strip both.
+                wait = wait.replace("﻿", "").replace("\xef\xbb\xbf", "").strip()
 
         # By default, the script is set to end after we break out of the "While True" loop displaying the pausing message
         must_run_script_again = False
@@ -213,6 +222,7 @@ def display_pause_prompt_and_menu():
             break  # exits while True to end pydblclick
         else:
             # The commands must be typed accurately. Must retry...
+            print("Unknown option.")
             wait = None
 
     # Run after we brake out of the While True loop:

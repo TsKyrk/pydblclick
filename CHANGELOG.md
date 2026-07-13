@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Hardened the pause menu against noisy stdin: input is now normalized
+  (BOM stripped, whitespace trimmed) before dispatch, so a BOM-prefixed line
+  (what PowerShell prepends to piped stdin) is treated as Enter instead of an
+  unrecognized keystroke that printed the menu twice. A genuinely unrecognized
+  choice now prints `"Unknown option."` before re-looping instead of silently
+  reprinting the prompt. See docs/pause-menu-double-print.md.
 - README now recommends the 3-line try/except directive variant by default
   for scripts distributed to recipients whose machine you don't control: on a
   bare machine (no pydblclick installed), the plain one-line `import
