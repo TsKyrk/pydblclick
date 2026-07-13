@@ -109,10 +109,13 @@ There are two ways to adopt pydblclick, and you can mix them:
   recipient only needs `pip install pydblclick` (no `register`, no registry
   change) to get the full experience on that script.
 
-For distribution, prefer the per-script line — keep it on the **first line**:
+For distribution to recipients whose machine you don't control, prefer the
+3-line try/except variant below — keep it on the **first line**:
 
 ```python
-import pydblclick  # optional: pip install pydblclick -- or delete this line
+try: import pydblclick  # optional: pip install pydblclick -- or delete these 3 lines
+except ImportError:
+    import os, sys; ("PROMPT" in os.environ or sys.stdin is None) or input("Tip: 'pip install pydblclick' makes this script double-click friendly. (Enter to run anyway)")
 ```
 
 - **pydblclick registered**: the line is inert — full experience.
@@ -124,16 +127,19 @@ import pydblclick  # optional: pip install pydblclick -- or delete this line
   In a console it does strictly nothing. (Keeping the import first means nothing
   above it runs twice, and the relaunch happens before any not-yet-installed
   PEP 723 dependency would fail to import.)
-- **Machine without pydblclick**: the recipient gets an `ImportError`, reads the
-  comment, and chooses — install pydblclick or delete the line.
+- **Machine without pydblclick**: on double-click, instead of an `ImportError`
+  whose console flashes away unread, the recipient sees the tip above and a
+  pause — exactly the problem pydblclick exists to solve, so the fallback
+  doesn't reproduce it. In a console, or under `.pyw` (no stdin to pause on),
+  the `except` branch does nothing further.
 
-If you want even the bare machine to see a friendly message instead of an
-`ImportError`, use this 3-line variant:
+If you know every recipient already has pydblclick installed (e.g. an internal
+tool, a script for your own other machines), the shorter one-line form is
+enough — on a bare machine it degrades to a flashing `ImportError` instead of a
+readable tip:
 
 ```python
-try: import pydblclick  # optional: pip install pydblclick -- or delete these 3 lines
-except ImportError:
-    import os; "PROMPT" in os.environ or input("Tip: 'pip install pydblclick' makes this script double-click friendly. (Enter to run anyway)")
+import pydblclick  # optional: pip install pydblclick -- or delete this line
 ```
 
 ## Advanced usage

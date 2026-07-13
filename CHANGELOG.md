@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- README now recommends the 3-line try/except directive variant by default
+  for scripts distributed to recipients whose machine you don't control: on a
+  bare machine (no pydblclick installed), the plain one-line `import
+  pydblclick` directive died on an `ImportError` whose console flashes away
+  unread -- the exact problem pydblclick exists to solve. The try/except
+  variant now also guards its `input()` fallback against `.pyw` (no stdin),
+  which would otherwise crash. Added `examples/01c_HelloWorld_WITH_pydblclick_import_tryexcept.py`.
 - Fixed silent PEP 723 dependency shadowing: making pydblclick importable
   inside `uv run`'s ephemeral environment used to inject the host's
   site-packages onto `PYTHONPATH`, which precedes the ephemeral env in

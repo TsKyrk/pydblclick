@@ -8,6 +8,12 @@ You may want to run these examples twice. Once for each use case:
 [README](../README.md)). Once registered, `.py`/`.pyw` files can be associated with the pydblclick tool
 instead of your usual python interpreter so that double-clicks on any python script will always trigger the tool — no import line required in the scripts themselves.
 
+`01b_HelloWorld_WITH_pydblclick_import.py` and `01c_HelloWorld_WITH_pydblclick_import_tryexcept.py`
+show the two forms of the per-script directive (see the main [README](../README.md#distributing-to-people-who-may-not-have-pydblclick)):
+the plain one-liner (`01b`) and the try/except variant (`01c`, recommended for
+distribution) that turns a bare machine's `ImportError` into a readable tip
+instead of a flashing console.
+
 ## Comparison table
 
 Double-click each file and observe:
