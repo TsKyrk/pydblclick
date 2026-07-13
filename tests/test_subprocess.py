@@ -371,6 +371,59 @@ def test_find_uv_falls_back_to_interpreter_scripts_dir(monkeypatch, tmp_path):
     assert m._find_uv() == str(fake_uv)
 
 
+def test_build_child_command_pins_pydblclick_version_no_pythonpath(tmp_path, monkeypatch):
+    """The uv command pins pydblclick via `--with pydblclick==<version>` and
+    leaves PYTHONPATH untouched -- no host site-packages injection that could
+    shadow a PEP 723-pinned dependency version (ROADMAP_HARDENING.md item 3)."""
+    import pydblclick.__main__ as m
+
+    fake_uv = tmp_path / "uv.exe"
+    fake_uv.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PYDBLCLICK_UV", str(fake_uv))
+    monkeypatch.setattr(m, "_pydblclick_version", lambda: "1.2.3")
+
+    script = tmp_path / "needs_deps.py"
+    script.write_text(PEP723_SCRIPT, encoding="utf-8")
+
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    cmd, cleanup_dir = m._build_child_command(str(script), [], env)
+
+    assert cleanup_dir is None
+    assert "PYTHONPATH" not in env
+    assert cmd[0] == str(fake_uv)
+    assert "pydblclick==1.2.3" in cmd
+
+
+def test_build_child_command_dev_checkout_falls_back_to_isolated_pythonpath(tmp_path, monkeypatch):
+    """When pydblclick's version can't be resolved (dev checkout with no
+    installed distribution), PYTHONPATH is used but points only at a
+    throwaway copy of the pydblclick package -- never the whole host
+    site-packages."""
+    import shutil
+    import pydblclick.__main__ as m
+
+    fake_uv = tmp_path / "uv.exe"
+    fake_uv.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PYDBLCLICK_UV", str(fake_uv))
+    monkeypatch.setattr(m, "_pydblclick_version", lambda: None)
+
+    script = tmp_path / "needs_deps.py"
+    script.write_text(PEP723_SCRIPT, encoding="utf-8")
+
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    cmd, cleanup_dir = m._build_child_command(str(script), [], env)
+
+    try:
+        assert cleanup_dir is not None
+        assert env["PYTHONPATH"] == cleanup_dir
+        assert os.path.isfile(os.path.join(cleanup_dir, "pydblclick", "__init__.py"))
+        assert not any(arg.startswith("pydblclick==") for arg in cmd)
+    finally:
+        shutil.rmtree(cleanup_dir, ignore_errors=True)
+
+
 def test_subprocess_pep723_without_uv_falls_back(tmp_path):
     """Without uv on PATH, a PEP 723 script still runs (plain) with a clear message."""
     if _uv_available():

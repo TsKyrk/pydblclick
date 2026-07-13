@@ -36,8 +36,13 @@ launching the child it inspects the script's source (`pydblclick/_script_meta.py
 - PEP 723 `# /// script` block → the child is launched through
   `uv run --no-project --with <dep>... [--python <spec>] python -m pydblclick._child`,
   so dependencies are resolved in an ephemeral environment. pydblclick itself is made
-  importable inside that environment via PYTHONPATH injection. If uv is missing, a
-  clear message is printed and the script runs with plain Python.
+  importable inside that environment via `--with pydblclick==<installed version>`
+  (resolved through `importlib.metadata`), not PYTHONPATH: PYTHONPATH precedes the
+  ephemeral env's site-packages in `sys.path`, so it would silently shadow any PEP
+  723-pinned dependency the host also happens to have installed. A dev checkout with
+  no installed distribution falls back to PYTHONPATH, isolated to a temp copy of just
+  the `pydblclick` package rather than the whole host site-packages. If uv is missing,
+  a clear message is printed and the script runs with plain Python.
 - otherwise → `python -m pydblclick._child script.py [args...]`.
 
 While the child runs, the parent ignores Ctrl+C (the child must handle it: the script

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Fixed silent PEP 723 dependency shadowing: making pydblclick importable
+  inside `uv run`'s ephemeral environment used to inject the host's
+  site-packages onto `PYTHONPATH`, which precedes the ephemeral env in
+  `sys.path` -- so a script declaring `requests==2.32` silently got the
+  host's `requests` if one was installed there instead. Now uses
+  `--with pydblclick==<installed version>` like any other dependency; a dev
+  checkout with no installed distribution falls back to PYTHONPATH pointed at
+  an isolated temp copy of just the pydblclick package. Offline note: if uv
+  has no cached copy of the pinned pydblclick version, the first `--with`
+  resolution requires network access (same as any other PEP 723 dependency).
 - Fixed a false positive in the `import pydblclick` directive's double-click
   detection: `python script.py` run interactively from PowerShell (pwsh or
   powershell.exe, neither of which set `PROMPT`) was mistaken for a

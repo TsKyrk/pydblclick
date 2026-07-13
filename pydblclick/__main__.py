@@ -127,13 +127,39 @@ def _find_uv():
     return None
 
 
+def _pydblclick_version():
+    """The installed pydblclick version, or None if it cannot be resolved (a
+    dev checkout run off PYTHONPATH with no installed distribution)."""
+    import importlib.metadata
+    try:
+        return importlib.metadata.version("pydblclick")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def _isolated_pydblclick_copy():
+    """Copy just the pydblclick package into a fresh temp directory and return
+    that directory (to be put on PYTHONPATH). Isolated so PYTHONPATH shadows
+    nothing else from the host's site-packages -- see the PYTHONPATH-shadowing
+    comment in _build_child_command(). Caller must remove the returned
+    directory once the subprocess using it has finished."""
+    package_dir = os.path.dirname(os.path.abspath(__file__))
+    staging = tempfile.mkdtemp(prefix="pydblclick_uv_pythonpath_")
+    shutil.copytree(package_dir, os.path.join(staging, "pydblclick"))
+    return staging
+
+
 def _build_child_command(script, script_args, env):
-    """Build the child command line, delegating to `uv run` for PEP 723 scripts."""
+    """Build the child command line, delegating to `uv run` for PEP 723 scripts.
+
+    Returns (cmd, cleanup_dir): cleanup_dir is a temp directory the caller must
+    remove after the subprocess exits, or None if there is nothing to clean up.
+    """
     default_cmd = [_console_python(), "-m", "pydblclick._child", script] + script_args
 
     meta = _script_meta.parse_pep723(_script_meta.read_script_text(script))
     if meta is None:
-        return default_cmd
+        return default_cmd, None
 
     uv = _find_uv()
     if not uv:
@@ -141,20 +167,37 @@ def _build_child_command(script, script_args, env):
         print("            Install uv to run it with its dependencies resolved automatically:")
         print("            " + UV_INSTALL_URL)
         print("            Running with plain Python instead...\n")
-        return default_cmd
+        return default_cmd, None
 
     cmd = [uv, "run", "--no-project"]
     if meta["requires-python"]:
         cmd += ["--python", meta["requires-python"]]
     for dep in meta["dependencies"]:
         cmd += ["--with", dep]
-    cmd += ["python", "-m", "pydblclick._child", script] + script_args
 
-    # pydblclick itself must be importable inside uv's ephemeral environment
-    package_parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    existing = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = package_parent + (os.pathsep + existing if existing else "")
-    return cmd
+    # pydblclick itself must be importable inside uv's ephemeral environment (so
+    # the script's own `import pydblclick` directive, if present, is inert
+    # rather than a ModuleNotFoundError). Preferred: let uv resolve the exact
+    # installed version like any other dependency -- unlike PYTHONPATH, this
+    # does not sit ahead of the ephemeral env's site-packages in sys.path, so
+    # it cannot shadow a PEP 723-pinned version of a package the host also
+    # happens to have installed (e.g. script pins requests==2.32, host has
+    # 2.28: PYTHONPATH would have silently served the host's 2.28).
+    cleanup_dir = None
+    version = _pydblclick_version()
+    if version is not None:
+        cmd += ["--with", "pydblclick==" + version]
+    else:
+        # Dev checkout with no installed distribution to resolve a version
+        # from: fall back to PYTHONPATH, but isolated to a throwaway copy of
+        # just the pydblclick package -- not the whole host site-packages,
+        # which is what would shadow pinned dependencies above.
+        cleanup_dir = _isolated_pydblclick_copy()
+        existing = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = cleanup_dir + (os.pathsep + existing if existing else "")
+
+    cmd += ["python", "-m", "pydblclick._child", script] + script_args
+    return cmd, cleanup_dir
 
 
 def main():
@@ -185,7 +228,7 @@ def main():
     env = dict(os.environ)
     env["PYDBLCLICK_STATUS_FILE"] = status_file
 
-    cmd = _build_child_command(script, script_args, env)
+    cmd, cleanup_dir = _build_child_command(script, script_args, env)
 
     # Windowless mode: a double-clicked .pyw arrives here through pythonw.exe,
     # so this parent has no console. The child runs fully detached (no console
@@ -216,6 +259,8 @@ def main():
         signal.signal(signal.SIGINT, previous_handler)
         if log_handle:
             log_handle.close()
+        if cleanup_dir:
+            shutil.rmtree(cleanup_dir, ignore_errors=True)
 
     child_handled = _read_status(status_file) == STATUS_HANDLED
     for temp_file in (status_file, log_file):
