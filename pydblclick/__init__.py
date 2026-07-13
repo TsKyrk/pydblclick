@@ -15,6 +15,12 @@ for `.pyw` too: a double-clicked `.pyw` (detected by its Explorer launcher, sinc
 pythonw has no console/stdin) is relaunched windowless, and a console appears
 only if the script raises.
 
+Double-click detection requires the process to descend from explorer.exe with
+only known launcher hops in between (py.exe, python.exe, pythonw.exe, the MSIX
+Python Manager) -- for `.py` this is checked in addition to the interactive-tty
+signal, so `python script.py` run from a shell (including PowerShell, which
+unlike cmd.exe does not set `PROMPT`) is never mistaken for a double-click.
+
 If that relaunch cannot even start, a minimal in-process fallback takes over
 instead (readable errors + a pause, with a hint about `pydblclick register`).
 
@@ -65,26 +71,57 @@ def _install_minimal_fallback():
     return True
 
 
+def _walk_ancestry_for_explorer(pid, parent_of, name_of, max_depth=8):
+    """Pure ancestry walk used by `_launched_by_explorer`: True if `pid`'s
+    ancestry reaches explorer.exe before any non-launcher process, tolerating
+    only known launcher hops (see LAUNCHERS in `_launched_by_explorer`).
+    Factored out of the ctypes snapshot code so it is testable with plain
+    dicts, no real process table required."""
+    for _ in range(max_depth):
+        parent = parent_of.get(pid)
+        if not parent or parent == pid:
+            break
+        pname = name_of.get(parent, "")
+        if pname == "explorer.exe":
+            return True
+        if pname not in LAUNCHERS:
+            return False
+        pid = parent
+    return False
+
+
+LAUNCHERS = {
+    "py.exe", "pyw.exe", "python.exe", "pythonw.exe", "python3.exe",
+    # MSIX Python Manager (https://github.com/python/pymanager) hops: its own
+    # launcher shims and per-install venv launchers. See
+    # pydblclick/winpyfiles/_assoc.py::find_msix_python_package() for the
+    # matching registry/package detection -- update both if pymanager renames
+    # its executables.
+    "pymanager.exe", "pymanager-gui.exe", "venvlauncher.exe", "venvwlauncher.exe",
+}
+
+
 def _launched_by_explorer(max_depth=8):
     """True if this process was started by a GUI double-click: walking up the
-    ancestry we reach explorer.exe *before* any console host or shell. Launcher
-    hops (py.exe, python.exe, pythonw.exe, the MSIX Python Manager) are stepped
-    over; a shell/terminal ancestor (cmd, powershell, pwsh, conhost, Windows
-    Terminal, ...) means it was launched from a console, so return False -- this
-    is what keeps the feature out of `.pyw` runs from a terminal, whose window
-    is itself an Explorer descendant. Automation (services, scheduled tasks) has
-    svchost/taskeng ancestry and reaches neither marker -> False. Used to detect
-    a `.pyw` double-click, which has no console/stdin to key on. Best-effort:
-    any failure returns False (stay inert)."""
+    ancestry we reach explorer.exe *before* any non-launcher process. Only
+    known launcher hops (LAUNCHERS: py.exe, python.exe, pythonw.exe, the MSIX
+    Python Manager) are stepped over; any other ancestor -- a shell/terminal
+    (cmd, powershell, pwsh, conhost, Windows Terminal, an IDE's run button, an
+    unknown GUI launcher) -- means False. This is an allowlist, not a
+    blocklist: an unrecognized parent is treated as NOT a double-click, which
+    keeps the feature out of `.pyw` runs from a terminal (whose window is
+    itself an Explorer descendant) and out of GUI apps that merely happen to
+    have Explorer further up their ancestry. The tradeoff is that launching
+    from an unlisted GUI tool (e.g. an IDE's "Run" button) no longer counts as
+    a double-click either -- inertness is the safe default there, since it
+    just falls back to plain Python behavior. Automation (services, scheduled
+    tasks) has svchost/taskeng ancestry and reaches neither marker -> False.
+    Used to detect a `.pyw` double-click, which has no console/stdin to key
+    on. Best-effort: any failure returns False (stay inert)."""
     import os
     import ctypes
     from ctypes import wintypes
 
-    SHELLS = {
-        "cmd.exe", "powershell.exe", "pwsh.exe", "conhost.exe",
-        "openconsole.exe", "windowsterminal.exe", "wt.exe",
-        "bash.exe", "sh.exe", "mintty.exe", "code.exe",
-    }
     TH32CS_SNAPPROCESS = 0x00000002
     INVALID_HANDLE = ctypes.c_void_p(-1).value
 
@@ -134,18 +171,7 @@ def _launched_by_explorer(max_depth=8):
     except Exception:
         return False
 
-    pid = os.getpid()
-    for _ in range(max_depth):
-        parent = parent_of.get(pid)
-        if not parent or parent == pid:
-            break
-        pname = name_of.get(parent, "")
-        if pname == "explorer.exe":
-            return True
-        if pname in SHELLS:
-            return False
-        pid = parent
-    return False
+    return _walk_ancestry_for_explorer(os.getpid(), parent_of, name_of, max_depth)
 
 
 def _bootstrap_through_pydblclick(script, script_args):
@@ -194,17 +220,23 @@ def _maybe_enable_import_fallback():
         return False  # console / batch context
     if not simulated:
         # A real .py double-click gives the process an interactive console
-        # (stdin is a tty). A .pyw runs under pythonw with no console/stdin, so
-        # for .pyw the double-click is detected by its launcher (an Explorer
-        # ancestor) instead. Everything else -- piped/CI, pythonw automation --
-        # stays inert.
+        # (stdin is a tty) -- but so does `python script.py` run interactively
+        # from PowerShell (pwsh/powershell.exe do not set PROMPT either, and
+        # their stdin is a tty too), so a tty check alone false-positives
+        # there. Requiring _launched_by_explorer() too closes that gap. A .pyw
+        # runs under pythonw with no console/stdin at all, so for .pyw the
+        # double-click is detected by its launcher ancestry exclusively.
+        # Everything else -- piped/CI, pythonw automation -- stays inert.
         script_ext = os.path.splitext(sys.argv[0])[1].lower() if sys.argv else ""
         try:
             stdin_is_tty = sys.stdin is not None and sys.stdin.isatty()
         except Exception:
             stdin_is_tty = False
-        if not stdin_is_tty:
-            if not (script_ext == ".pyw" and _launched_by_explorer()):
+        if script_ext == ".pyw":
+            if not _launched_by_explorer():
+                return False
+        else:
+            if not (stdin_is_tty and _launched_by_explorer()):
                 return False
 
     # Only activate when a *user file* imported us. During pydblclick's own

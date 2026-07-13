@@ -38,16 +38,26 @@ there would hijack scripts that deliberately want no console.
 
 The solution is `_launched_by_explorer()` in `pydblclick/__init__.py`: it snapshots
 the process table (`CreateToolhelp32Snapshot` / `Process32First`/`Next` via ctypes,
-stdlib only) and walks the ancestry of the current process. It returns:
+stdlib only) and walks the ancestry of the current process (the pure walk is
+factored into `_walk_ancestry_for_explorer()`, testable with plain dicts). It
+returns:
 
-- **True** if it reaches `explorer.exe` **before** any shell/console host — a GUI
-  double-click, tolerating launcher hops (py.exe, python.exe, pythonw.exe, the
-  MSIX Python Manager).
-- **False** as soon as it hits a shell/console host (`cmd.exe`, `powershell.exe`,
-  `pwsh.exe`, `conhost.exe`, Windows Terminal, ...). This is the crucial guard:
-  a `.pyw` launched from a terminal has that terminal — itself an Explorer
-  descendant — in its ancestry, so a naive "is Explorer an ancestor?" check would
-  false-positive. Stopping at the shell prevents that.
+- **True** if it reaches `explorer.exe` **before** any non-launcher process — a
+  GUI double-click, tolerating only known launcher hops in `LAUNCHERS` (py.exe,
+  pyw.exe, python.exe, pythonw.exe, python3.exe, and the MSIX Python Manager's
+  launcher/venv-launcher executables).
+- **False** as soon as it hits anything not in `LAUNCHERS` — a shell/console host
+  (`cmd.exe`, `powershell.exe`, `pwsh.exe`, `conhost.exe`, Windows Terminal, ...),
+  an IDE's run button, or any other GUI app. This is an **allowlist, not a
+  blocklist**: an unrecognized parent means "not a double-click," which is the
+  safe default (plain-Python behavior) rather than trying to enumerate every
+  shell that might exist. This is also the crucial guard against the case a
+  blocklist alone would miss: a `.pyw` launched from a terminal has that
+  terminal — itself an Explorer descendant — in its ancestry, so a naive "is
+  Explorer an ancestor?" check would false-positive; stopping at the first
+  non-launcher ancestor prevents that. The tradeoff: a `.pyw` launched by an
+  unlisted GUI tool (an IDE's "Run" button, an alternative file manager) no
+  longer counts as a double-click either — it just stays inert.
 - **False** for automation (svchost/taskeng ancestry reaches neither marker) and
   on any failure (best-effort: stay inert).
 
@@ -57,11 +67,16 @@ sits behind explicit author consent as well.
 ## Implementation summary
 
 In `pydblclick/__init__.py::_maybe_enable_import_fallback()`, the double-click
-gate became: proceed if stdin is an interactive tty (the `.py` case) **or** the
-script extension is `.pyw` and `_launched_by_explorer()` is true. Every other
-early-return is intact (console/CI/piped, `# pydblclick: off` opt-out, the
-already-wrapped `builtins` marker, the imported-by-a-user-file stack check). The
-bootstrap and `SystemExit` propagation are shared with the `.py` path unchanged.
+gate is: for `.pyw`, proceed only if `_launched_by_explorer()` is true (no tty
+to key on); for `.py`, proceed only if stdin is an interactive tty **and**
+`_launched_by_explorer()` is true. The `.py` side originally checked the tty
+alone, which false-positived for `python script.py` run interactively from
+PowerShell (pwsh/powershell.exe don't set `PROMPT`, and their stdin is a tty
+too); requiring the Explorer-launcher check there as well closes that gap (see
+ROADMAP_HARDENING.md item 1). Every other early-return is intact (console/CI/
+piped, `# pydblclick: off` opt-out, the already-wrapped `builtins` marker, the
+imported-by-a-user-file stack check). The bootstrap and `SystemExit`
+propagation are shared between both paths unchanged.
 
 ## Tests
 

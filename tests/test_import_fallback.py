@@ -121,6 +121,37 @@ def test_optout_directive_steps_aside_no_relaunch(tmp_path):
     assert result.returncode == 0
 
 
+def test_walk_ancestry_for_explorer_allows_only_known_launchers():
+    """Pure ancestry-walk logic behind `_launched_by_explorer`: reaching
+    explorer.exe through launcher hops only (py.exe, pythonw.exe, ...) returns
+    True; hitting a shell or any other unrecognized process first returns
+    False. This is the allowlist inversion (ROADMAP_HARDENING.md item 2):
+    unlike a shell blocklist, an unknown intervening process is NOT tolerated."""
+    from pydblclick import _walk_ancestry_for_explorer
+
+    # explorer -> py.exe -> pythonw.exe -> pid (double-click via launcher hops)
+    parent_of = {1: None, 2: 1, 3: 2, 4: 3}
+    name_of = {1: "explorer.exe", 2: "py.exe", 3: "pythonw.exe", 4: "script.exe"}
+    assert _walk_ancestry_for_explorer(4, parent_of, name_of) is True
+
+    # explorer -> pwsh.exe -> pid (launched from a terminal, itself an
+    # Explorer descendant -- must NOT false-positive)
+    parent_of_shell = {1: None, 2: 1, 3: 2}
+    name_of_shell = {1: "explorer.exe", 2: "pwsh.exe", 3: "script.exe"}
+    assert _walk_ancestry_for_explorer(3, parent_of_shell, name_of_shell) is False
+
+    # explorer -> some_unknown_gui.exe -> pid (unrecognized launcher: an
+    # allowlist rejects this, where the old blocklist would have tolerated it)
+    parent_of_unknown = {1: None, 2: 1, 3: 2}
+    name_of_unknown = {1: "explorer.exe", 2: "some_unknown_gui.exe", 3: "script.exe"}
+    assert _walk_ancestry_for_explorer(3, parent_of_unknown, name_of_unknown) is False
+
+    # explorer -> pymanager.exe -> pid (MSIX Python Manager hop is allowlisted)
+    parent_of_msix = {1: None, 2: 1, 3: 2}
+    name_of_msix = {1: "explorer.exe", 2: "pymanager.exe", 3: "script.exe"}
+    assert _walk_ancestry_for_explorer(3, parent_of_msix, name_of_msix) is True
+
+
 def test_pyw_directive_inert_without_explorer(tmp_path):
     """A `.pyw` with the directive, run WITHOUT an Explorer double-click (here a
     test runner, i.e. a shell ancestry) stays inert: `.pyw` double-click
@@ -183,6 +214,58 @@ def test_pyw_directive_relaunches_windowless_on_crash(tmp_path):
     finally:
         subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
                        capture_output=True)
+
+
+def test_py_tty_without_explorer_ancestry_stays_inert(monkeypatch):
+    """The PowerShell false-positive this closes: pwsh/powershell.exe set no
+    PROMPT and give the process an interactive tty, which used to be enough to
+    trigger the bootstrap. Now `.py` also requires `_launched_by_explorer()`.
+
+    A real subprocess can't easily get a genuine tty stdin here (capture_output
+    always pipes it), so this exercises `_maybe_enable_import_fallback()`
+    in-process with stdin.isatty() faked True and `_launched_by_explorer()`
+    stubbed to return False (the PowerShell shape: a shell ancestor, no
+    Explorer) -- proving tty alone is no longer sufficient."""
+    import pydblclick
+
+    monkeypatch.delenv("PROMPT", raising=False)
+    monkeypatch.delenv("pydblclick_simulate_doubleclick", raising=False)
+    monkeypatch.delenv("pyexewrap_simulate_doubleclick", raising=False)
+    monkeypatch.setattr(sys, "argv", ["script.py"])
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True, raising=False)
+
+    explorer_calls = []
+    monkeypatch.setattr(
+        pydblclick, "_launched_by_explorer",
+        lambda: explorer_calls.append(1) or False,
+    )
+
+    assert pydblclick._maybe_enable_import_fallback() is False
+    assert explorer_calls == [1]  # the explorer check was actually consulted
+
+
+def test_py_directive_inert_without_explorer(tmp_path):
+    """A `.py` with the directive, run in a subprocess WITHOUT the simulation
+    env var and WITHOUT PROMPT, stays inert: the test runner's own ancestry is
+    a shell, not Explorer. Mirrors test_pyw_directive_inert_without_explorer;
+    stdin here is piped (non-tty) so this also covers the ordinary CI/piped
+    case, unaffected by the explorer-ancestry requirement."""
+    script = tmp_path / "directive_no_explorer.py"
+    script.write_text(SCRIPT_OK, encoding="utf-8")
+
+    env = {**os.environ, "PYTHONPATH": REPO_ROOT}
+    env.pop("PROMPT", None)
+    env.pop("pydblclick_simulate_doubleclick", None)
+    env.pop("pyexewrap_simulate_doubleclick", None)
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        input="", capture_output=True, text=True, env=env, timeout=30,
+    )
+
+    assert "script ran fine" in result.stdout
+    assert MINIMAL_MARKER not in result.stdout
+    assert FULL_MENU_MARKER not in result.stdout
+    assert result.returncode == 0
 
 
 def test_no_bootstrap_env_forces_minimal(tmp_path):

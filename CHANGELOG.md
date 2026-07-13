@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- Fixed a false positive in the `import pydblclick` directive's double-click
+  detection: `python script.py` run interactively from PowerShell (pwsh or
+  powershell.exe, neither of which set `PROMPT`) was mistaken for a
+  double-click and dropped into the pause menu. `.py` detection now also
+  requires `_launched_by_explorer()`, same as `.pyw`.
+- `_launched_by_explorer()` now uses an **allowlist** of launcher hops
+  (py.exe, pythonw.exe, python.exe, the MSIX Python Manager, ...) instead of a
+  shell blocklist. Previously any unrecognized intervening process (an IDE's
+  run button, an alternative file manager) was tolerated and treated as a
+  double-click, which could silently swallow a `.pyw` script's output into a
+  detached log. Unknown ancestors are now treated as *not* a double-click
+  (plain-Python behavior), the safe default.
+
 ## 0.5.1 (2026-07)
 
 - PEP 723 scripts now find uv when it was installed with `pip install uv`:
