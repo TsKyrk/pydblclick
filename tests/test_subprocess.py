@@ -373,7 +373,7 @@ def test_find_uv_prefers_env_override(monkeypatch, tmp_path):
     """PYDBLCLICK_UV wins over everything else."""
     from pydblclick.__main__ import _find_uv
     monkeypatch.setenv("PYDBLCLICK_UV", r"C:\custom\uv.exe")
-    assert _find_uv() == r"C:\custom\uv.exe"
+    assert _find_uv() == [r"C:\custom\uv.exe"]
 
 
 def test_find_uv_falls_back_to_interpreter_scripts_dir(monkeypatch, tmp_path):
@@ -390,7 +390,36 @@ def test_find_uv_falls_back_to_interpreter_scripts_dir(monkeypatch, tmp_path):
     monkeypatch.setattr(sysconfig, "get_path",
                         lambda name, *a, **k: str(tmp_path) if name == "scripts" else "")
 
-    assert m._find_uv() == str(fake_uv)
+    assert m._find_uv() == [str(fake_uv)]
+
+
+def test_find_uv_falls_back_to_python_dash_m_uv(monkeypatch, tmp_path):
+    """Last resort: the uv PyPI package is runnable as `python -m uv` (its
+    __main__.py execs the embedded binary), covering any pip-installed uv
+    invisible to both PATH and the Scripts-dir probe."""
+    import sysconfig
+    import importlib.util
+    import pydblclick.__main__ as m
+
+    monkeypatch.delenv("PYDBLCLICK_UV", raising=False)
+    monkeypatch.setattr(m.shutil, "which", lambda name: None)  # not on PATH
+    monkeypatch.setattr(sysconfig, "get_path", lambda name, *a, **k: "")  # no Scripts dir hit
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: object() if name == "uv" else None)
+
+    assert m._find_uv() == [sys.executable, "-m", "uv"]
+
+
+def test_find_uv_returns_none_when_nothing_found(monkeypatch, tmp_path):
+    import sysconfig
+    import importlib.util
+    import pydblclick.__main__ as m
+
+    monkeypatch.delenv("PYDBLCLICK_UV", raising=False)
+    monkeypatch.setattr(m.shutil, "which", lambda name: None)
+    monkeypatch.setattr(sysconfig, "get_path", lambda name, *a, **k: "")
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
+
+    assert m._find_uv() is None
 
 
 def test_build_child_command_pins_pydblclick_version_no_pythonpath(tmp_path, monkeypatch):

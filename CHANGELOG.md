@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `_find_uv()` gained a last-resort fallback: `python -m uv` (the uv PyPI
+  package is runnable as a module), covering any pip-installed uv invisible to
+  both PATH and the interpreter's Scripts-dir probe. `_find_uv()` now returns
+  a command (a list of args) instead of a bare path, to accommodate this case;
+  `_build_child_command()` was updated accordingly.
 - `pydblclick diagnose` now detects a registered ProgID whose interpreter no
   longer exists on disk (uninstalled or moved since `register` ran), which
   otherwise breaks double-click silently. `pydblclick register` self-repairs

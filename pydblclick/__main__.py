@@ -95,20 +95,29 @@ def _plain_python_for(script):
 
 
 def _find_uv():
-    """Locate the uv executable.
+    """Locate uv, returning the command (a list of args) to invoke it, or None.
 
-    Order: the PYDBLCLICK_UV override, then PATH (shutil.which), then the Scripts
-    directory of the running interpreter -- where `pip install uv` lands. That
-    last fallback matters under the MSIX Python Manager, which does not put pip
-    Scripts dirs on PATH, so an otherwise-installed uv is invisible to
-    shutil.which().
+    Order:
+      1. the PYDBLCLICK_UV override
+      2. PATH (shutil.which)
+      3. the Scripts directory of the running interpreter -- where
+         `pip install uv` lands. Matters under the MSIX Python Manager, which
+         does not put pip Scripts dirs on PATH, so an otherwise-installed uv
+         is invisible to shutil.which().
+      4. `python -m uv` -- the uv PyPI package is runnable as a module (its
+         __main__.py execs the embedded binary), so this covers any
+         pip-installed uv without probing paths at all.
+
+    A command is a list (e.g. [sys.executable, "-m", "uv"]) rather than a bare
+    path so case 4 can be expressed; callers must prepend/extend, not assume
+    a single executable path.
     """
     override = os.environ.get("PYDBLCLICK_UV")
     if override:
-        return override
+        return [override]
     found = shutil.which("uv")
     if found:
-        return found
+        return [found]
 
     import sysconfig
     exe = "uv.exe" if os.name == "nt" else "uv"
@@ -123,7 +132,16 @@ def _find_uv():
         if scripts:
             candidate = os.path.join(scripts, exe)
             if os.path.isfile(candidate):
-                return candidate
+                return [candidate]
+
+    import importlib.util
+    try:
+        has_uv_module = importlib.util.find_spec("uv") is not None
+    except Exception:
+        has_uv_module = False
+    if has_uv_module:
+        return [sys.executable, "-m", "uv"]
+
     return None
 
 
@@ -161,15 +179,15 @@ def _build_child_command(script, script_args, env):
     if meta is None:
         return default_cmd, None
 
-    uv = _find_uv()
-    if not uv:
-        print("[pydblclick] This script declares PEP 723 dependencies, but 'uv' was not found on PATH.")
+    uv_cmd = _find_uv()
+    if not uv_cmd:
+        print("[pydblclick] This script declares PEP 723 dependencies, but 'uv' was not found.")
         print("            Install uv to run it with its dependencies resolved automatically:")
         print("            " + UV_INSTALL_URL)
         print("            Running with plain Python instead...\n")
         return default_cmd, None
 
-    cmd = [uv, "run", "--no-project"]
+    cmd = uv_cmd + ["run", "--no-project"]
     if meta["requires-python"]:
         cmd += ["--python", meta["requires-python"]]
     for dep in meta["dependencies"]:
