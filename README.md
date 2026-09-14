@@ -38,7 +38,12 @@ pip install pydblclick
 pydblclick register
 ```
 
-`pydblclick register` sets pydblclick as the default handler for `.py`/`.pyw` double-clicks
+> **`pydblclick` not recognized as a command?** pip's `Scripts` folder isn't on
+> `PATH` — a common gap on fresh installs, and especially with the MSIX Python
+> Manager. Use `py -m pydblclick register` instead (works regardless of `PATH`),
+> or add that `Scripts` folder to `PATH` yourself.
+
+`pydblclick register` or `py -m pydblclick register` sets pydblclick as the default handler for double-clicks on `.py`/`.pyw` files
 using the standard Windows mechanism (ProgID + UserChoice). This works on **all** Python
 installations — classic installer *and* MSIX Python Manager (see
 [MSIX_COMPATIBILITY.md](https://github.com/TsKyrk/pydblclick/blob/main/MSIX_COMPATIBILITY.md)).
